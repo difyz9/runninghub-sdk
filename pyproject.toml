@@ -1,6 +1,6 @@
 [project]
 name = "runninghub-sdk"
-version = "1.0.1"
+dynamic = ["version"]
 description = "RunningHub ComfyUI SDK - 轻松调用RunningHub的ComfyUI API"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -39,7 +39,7 @@ Repository = "https://github.com/runninghub-ai/runninghub-sdk"
 Issues = "https://github.com/runninghub-ai/runninghub-sdk/issues"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -48,6 +48,9 @@ include = ["runninghub_sdk*"]
 
 [tool.setuptools.package-data]
 runninghub_sdk = ["py.typed"]
+
+[tool.setuptools_scm]
+tag_regex = "^v(?P<version>.*)$"
 
 
 

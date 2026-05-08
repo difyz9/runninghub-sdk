@@ -203,16 +203,18 @@ python -m twine upload --repository testpypi dist/*
 触发方式：
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.3
+git push origin v1.0.3
 ```
 
 工作流会自动执行以下步骤：
 
-- 校验 Git tag 与 `pyproject.toml` 中的 `project.version` 完全一致
+- 根据 Git tag 自动生成包版本
 - 构建 `sdist` 和 `wheel`
 - 执行 `twine check`
 - 通过 PyPI Trusted Publishing 发布到正式 PyPI
+
+版本号来自 Git tag，本地不需要手工修改 `pyproject.toml` 中的版本字段。比如推送 `v1.0.3` 时，构建出的包版本就是 `1.0.3`。
 
 首次启用前，需要在 PyPI 项目后台配置 Trusted Publisher：
 

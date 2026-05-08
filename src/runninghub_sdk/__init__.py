@@ -26,7 +26,12 @@ RunningHub ComfyUI SDK
     task = client.run_with_modifier("workflow-id", modifier)
 """
 
-__version__ = "1.0.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("runninghub-sdk")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
 
 # 主类
 from .client import RunningHubClient, create_client
