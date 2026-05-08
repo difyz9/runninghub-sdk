@@ -3,7 +3,7 @@
 ## 安装依赖
 
 ```bash
-pip install httpx
+pip install runninghub-sdk
 ```
 
 ## 基础使用
