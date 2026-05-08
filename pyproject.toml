@@ -1,6 +1,6 @@
 [project]
 name = "runninghub-sdk"
-version = "1.0.0"
+version = "1.0.1"
 description = "RunningHub ComfyUI SDK - 轻松调用RunningHub的ComfyUI API"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -48,3 +48,8 @@ include = ["runninghub_sdk*"]
 
 [tool.setuptools.package-data]
 runninghub_sdk = ["py.typed"]
+
+
+
+
+

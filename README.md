@@ -196,6 +196,35 @@ python -m twine upload dist/*
 python -m twine upload --repository testpypi dist/*
 ```
 
+## GitHub Actions 自动发布
+
+仓库已包含基于 tag 的自动发布工作流：[.github/workflows/publish.yml](.github/workflows/publish.yml)。
+
+触发方式：
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+工作流会自动执行以下步骤：
+
+- 校验 Git tag 与 `pyproject.toml` 中的 `project.version` 完全一致
+- 构建 `sdist` 和 `wheel`
+- 执行 `twine check`
+- 通过 PyPI Trusted Publishing 发布到正式 PyPI
+
+首次启用前，需要在 PyPI 项目后台配置 Trusted Publisher：
+
+1. 打开 PyPI 项目设置中的 Publishing 页面。
+2. 添加一个 GitHub publisher。
+3. `Owner` 填 GitHub 组织或用户名。
+4. `Repository name` 填仓库名。
+5. `Workflow name` 填 `publish.yml`。
+6. `Environment name` 填 `pypi`。
+
+这样就不需要把 PyPI API Token 放进仓库、工作流或 `pyproject.toml`。
+
 ## License
 
 MIT
