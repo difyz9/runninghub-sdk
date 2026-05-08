@@ -212,20 +212,17 @@ git push origin v1.0.3
 - 根据 Git tag 自动生成包版本
 - 构建 `sdist` 和 `wheel`
 - 执行 `twine check`
-- 通过 PyPI Trusted Publishing 发布到正式 PyPI
+- 通过 GitHub Secrets 中的 PyPI API Token 发布到正式 PyPI
 
 版本号来自 Git tag，本地不需要手工修改 `pyproject.toml` 中的版本字段。比如推送 `v1.0.3` 时，构建出的包版本就是 `1.0.3`。
 
-首次启用前，需要在 PyPI 项目后台配置 Trusted Publisher：
+首次启用前，需要在 GitHub 仓库中配置一个 Actions Secret：
 
-1. 打开 PyPI 项目设置中的 Publishing 页面。
-2. 添加一个 GitHub publisher。
-3. `Owner` 填 GitHub 组织或用户名。
-4. `Repository name` 填仓库名。
-5. `Workflow name` 填 `publish.yml`。
-6. `Environment name` 填 `pypi`。
+1. 打开 GitHub 仓库设置中的 `Settings > Secrets and variables > Actions`。
+2. 新建仓库密钥 `PYPI_API_TOKEN`。
+3. 值填 PyPI 后台生成的 API Token，形如 `pypi-xxxxxxxxxxxxxxxxxxxx`。
 
-这样就不需要把 PyPI API Token 放进仓库、工作流或 `pyproject.toml`。
+这样就不需要把 PyPI API Token 放进仓库文件或 `pyproject.toml`。
 
 ## License
 
