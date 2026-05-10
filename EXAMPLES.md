@@ -298,6 +298,97 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## 场景案例：批量生成多组工作流结果
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+prompts = [
+    "a product photo of a luxury watch on black velvet",
+    "a product photo of a silver mechanical watch on marble",
+    "a product photo of a dress watch under studio lighting",
+]
+
+with RunningHubClient(api_key="your-api-key") as client:
+    for index, prompt in enumerate(prompts, start=1):
+        modifier = (
+            modify_nodes()
+            .text("6", prompt)
+            .seed("3", 1000 + index)
+            .steps("3", 28)
+        )
+        task = client.run_with_modifier("your-workflow-id", modifier)
+        outputs = client.wait_for_completion(task.task_id)
+        print(f"第 {index} 组结果:")
+        for output in outputs:
+            print(output.file_url)
+```
+
+## 场景案例：先做价格预估，再调用标准模型
+
+```python
+from runninghub_sdk import RunningHubClient
+
+endpoint = "rhart-image/f-2-dev/text-to-image"
+payload = {
+    "12##text": "a luxury perfume bottle in a cinematic commercial scene",
+    "41##select": "4:3",
+    "30##value": 1280,
+    "29##value": 960,
+    "43##file_type": "png",
+}
+
+with RunningHubClient(api_key="your-api-key") as client:
+    price = client.preview_model_price(endpoint, payload)
+    print("预估价格:", price.estimated_price, price.currency)
+
+    task = client.run_model_api(endpoint, payload)
+    result = client.wait_for_query_v2_completion(task.task_id)
+    print(result.results)
+```
+
+## 场景案例：根据账户与队列状态控制是否继续提交任务
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    account = client.get_account_status()
+    queue = client.get_queue_status()
+
+    print("余额:", account.remain_coins)
+    print("队列:", queue.running_count, queue.queued_count)
+
+    if int(queue.queued_count) > 10:
+        raise RuntimeError("当前排队任务过多，稍后再提交")
+
+    modifier = modify_nodes().text("6", "a cinematic travel poster")
+    task = client.run_with_modifier("your-workflow-id", modifier)
+    outputs = client.wait_for_completion(task.task_id)
+    print(outputs)
+```
+
+## 场景案例：AI App 图像输入链路
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    uploaded = client.upload_image("./assets/model-input.png")
+
+    modifier = (
+        modify_nodes()
+        .set("39", "image", uploaded["fileName"])
+        .set("52", "prompt", "改成高级时尚杂志封面")
+        .set("37", "aspect_ratio", "3:4")
+    )
+
+    task = client.run_ai_app_with_modifier("1937084629516193794", modifier)
+    outputs = client.wait_for_completion(task.task_id)
+    for output in outputs:
+        print(output.file_url)
+```
+
 ## 使用节点修改器（推荐）
 
 ```python

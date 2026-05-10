@@ -367,18 +367,214 @@ from runninghub_sdk import (
 
 更多可运行示例见 [EXAMPLES.md](EXAMPLES.md)。
 
-## 在 `runninghub_sdk` 目录发布到 PyPI
+## 详细使用案例
 
-进入当前目录后执行：
+下面给出几类更贴近实际业务的调用方式。完整脚本可继续参考 [EXAMPLES.md](EXAMPLES.md)。
+
+### 案例 1：先读取工作流结构，再按节点动态改参
+
+适合你拿到一个现成 workflow，但还不确定提示词节点、采样节点、尺寸节点编号时使用。
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    workflow = client.get_workflow_json_parsed("your-workflow-id")
+
+    print("可用节点:")
+    for node_id, node_data in workflow.items():
+        class_type = node_data.get("class_type", "unknown")
+        inputs = list(node_data.get("inputs", {}).keys())
+        print(node_id, class_type, inputs)
+
+    modifier = (
+        modify_nodes()
+        .text("6", "a cinematic portrait, 85mm lens, natural light")
+        .negative_text("7", "low quality, blurry, deformed")
+        .seed("3", 20260510)
+        .steps("3", 30)
+        .cfg("3", 7.0)
+        .size("5", 1024, 1536)
+    )
+
+    task = client.run_with_modifier("your-workflow-id", modifier)
+    outputs = client.wait_for_completion(task.task_id)
+
+    for output in outputs:
+        print(output.file_url)
+```
+
+### 案例 2：AI App 场景下先上传素材，再运行应用
+
+适合图生图、音频驱动、视频输入这类 AI App。流程一般是：获取节点示例、上传文件、把上传结果回填到节点、发起任务。
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    demo = client.get_ai_app_api_demo("1937084629516193794")
+    print(demo.webapp_name)
+
+    uploaded = client.upload_image("./assets/reference.png")
+
+    modifier = (
+        modify_nodes()
+        .set("39", "image", uploaded["fileName"])
+        .set("52", "prompt", "保持人物身份一致，改成电影海报风格")
+        .set("37", "aspect_ratio", "3:4")
+    )
+
+    task = client.run_ai_app_with_modifier(
+        "1937084629516193794",
+        modifier,
+    )
+    outputs = client.wait_for_completion(task.task_id)
+
+    for output in outputs:
+        print(output.file_type, output.file_url)
+```
+
+### 案例 3：调用标准模型 API 前先做价格预估
+
+适合标准模型 API 接口较多、计费需要前置校验的情况。推荐顺序：先 `preview_model_price()`，再 `run_model_api()`，最后走 V2 查询。
+
+```python
+from runninghub_sdk import RunningHubClient
+
+endpoint = "rhart-image/f-2-dev/text-to-image"
+payload = {
+    "12##text": "a product poster of a premium coffee grinder on a marble table",
+    "41##select": "4:3",
+    "30##value": 1280,
+    "29##value": 960,
+    "43##file_type": "png",
+}
+
+with RunningHubClient(api_key="your-api-key") as client:
+    price = client.preview_model_price(endpoint, payload)
+    print("预估价格:", price.estimated_price, price.currency)
+
+    task = client.run_model_api(endpoint, payload)
+    result = client.wait_for_query_v2_completion(task.task_id)
+
+    print("任务状态:", result.status)
+    print("输出结果:", result.results)
+```
+
+### 案例 4：上线前做账户、队列和 webhook 自检
+
+适合接入生产环境前检查账户余额、当前队列占用，以及排查 webhook 回调失败问题。
+
+```python
+from runninghub_sdk import RunningHubClient
+
+with RunningHubClient(api_key="your-api-key") as client:
+    account = client.get_account_status()
+    print(account.remain_coins, account.api_type, account.api_type_enum)
+
+    queue = client.get_queue_status()
+    print(queue.api_key_type, queue.api_key_type_enum)
+    print(queue.running_count, queue.queued_count)
+
+    detail = client.get_webhook_detail("1904154698679771137")
+    print(detail.callback_status, detail.callback_status_enum)
+    print(detail.callback_response)
+```
+
+## 发布到 PyPI 技术说明
+
+本仓库使用 `setuptools` + `setuptools-scm` 构建，发布入口是仓库根目录下的 [pyproject.toml](/Users/apple/opt/difyz_0329/0509/runninghub-sdk/pyproject.toml)。版本号不写死在配置文件里，而是来自 Git tag。
+
+### 发布前提
+
+发布前建议确认以下条件：
+
+- 当前目录是仓库根目录，而不是 `src/runninghub_sdk`
+- 本地 Python 版本不低于 3.8
+- 工作区中 `README.md`、`pyproject.toml`、`src/runninghub_sdk` 已准备完整
+- 已有 PyPI 或 TestPyPI 的 API Token
+- Git tag 规划已确认，例如 `v1.0.3`
+
+### 一次完整的本地发布流程
+
+1. 安装构建和上传工具。
 
 ```bash
 python -m pip install -U build twine
-python -m build
-python -m twine check dist/*
-python -m twine upload dist/*
 ```
 
-如果你使用 API Token，推荐先设置环境变量：
+2. 清理旧产物，避免把历史构建重复上传。
+
+```bash
+rm -rf build dist *.egg-info
+```
+
+3. 构建源码包和 wheel。
+
+```bash
+python -m build
+```
+
+4. 检查包元数据和长描述渲染。
+
+```bash
+python -m twine check dist/*
+```
+
+5. 本地验证构建出的版本号是否符合预期。
+
+```bash
+python -m tarfile -l dist/*.tar.gz | head
+python - <<'PY'
+import glob
+print(glob.glob('dist/*'))
+PY
+```
+
+### 版本号来源说明
+
+当前仓库使用 `setuptools-scm`，配置如下：
+
+```toml
+[tool.setuptools_scm]
+tag_regex = "^v(?P<version>.*)$"
+```
+
+这意味着：
+
+- Git tag `v1.0.3` 会生成包版本 `1.0.3`
+- 不需要手工修改 `pyproject.toml` 里的版本字段
+- 如果当前提交没有匹配 tag，本地构建出的版本会带开发后缀或 `0+unknown`
+
+发布正式版本前，建议先打 tag 再构建：
+
+```bash
+git tag v1.0.3
+git push origin v1.0.3
+```
+
+### 先发 TestPyPI 验证
+
+推荐先发 TestPyPI，确认依赖、README 渲染和安装流程都正常。
+
+```bash
+export TWINE_USERNAME=__token__
+export TWINE_PASSWORD=pypi-xxxxxxxxxxxxxxxxxxxx
+python -m twine upload --repository testpypi dist/*
+```
+
+上传后可以用单独虚拟环境验证安装：
+
+```bash
+python -m venv .venv-testpypi
+source .venv-testpypi/bin/activate
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple runninghub-sdk
+python -c "import runninghub_sdk; print(runninghub_sdk.__version__)"
+```
+
+### 发布到正式 PyPI
+
+确认 TestPyPI 没问题后，再上传正式 PyPI：
 
 ```bash
 export TWINE_USERNAME=__token__
@@ -386,40 +582,22 @@ export TWINE_PASSWORD=pypi-xxxxxxxxxxxxxxxxxxxx
 python -m twine upload dist/*
 ```
 
-发布前建议先上传到 TestPyPI 做一次验证：
+上传成功后建议立刻验证：
 
 ```bash
-python -m twine upload --repository testpypi dist/*
+python -m venv .venv-pypi
+source .venv-pypi/bin/activate
+pip install -U runninghub-sdk
+python -c "import runninghub_sdk; print(runninghub_sdk.__version__)"
 ```
 
-## GitHub Actions 自动发布
+### 常见发布问题
 
-仓库已包含基于 tag 的自动发布工作流：[.github/workflows/publish.yml](.github/workflows/publish.yml)。
+#### 1. `0+unknown` 版本号
 
-触发方式：
+通常说明当前目录不在有效 Git 元数据环境内，或者还没打符合规则的 tag。解决方式：
 
-```bash
-git tag v1.0.3
-git push origin v1.0.3
-```
+- 确保在 Git 仓库根目录执行构建
+- 确保已有类似 `v1.0.3` 的 tag
+- 确保本地检出了 tag 所在提交或可访问 Git 历史
 
-工作流会自动执行以下步骤：
-
-- 根据 Git tag 自动生成包版本
-- 构建 `sdist` 和 `wheel`
-- 执行 `twine check`
-- 通过 GitHub Secrets 中的 PyPI API Token 发布到正式 PyPI
-
-版本号来自 Git tag，本地不需要手工修改 `pyproject.toml` 中的版本字段。比如推送 `v1.0.3` 时，构建出的包版本就是 `1.0.3`。
-
-首次启用前，需要在 GitHub 仓库中配置一个 Actions Secret：
-
-1. 打开 GitHub 仓库设置中的 `Settings > Secrets and variables > Actions`。
-2. 新建仓库密钥 `PYPI_API_TOKEN`。
-3. 值填 PyPI 后台生成的 API Token，形如 `pypi-xxxxxxxxxxxxxxxxxxxx`。
-
-这样就不需要把 PyPI API Token 放进仓库文件或 `pyproject.toml`。
-
-## License
-
-MIT
