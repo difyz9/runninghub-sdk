@@ -18,7 +18,7 @@ dist/
 .cursor/
 
 .env
-
+*.txt
 # OS
 .DS_Store
 Thumbs.db
