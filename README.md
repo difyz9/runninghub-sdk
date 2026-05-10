@@ -2,6 +2,8 @@
 
 `runninghub-sdk` 是一个面向 RunningHub ComfyUI OpenAPI 的 Python SDK，支持任务创建、状态轮询、结果查询、文件上传，以及用链式 NodeModifier 修改工作流节点参数。
 
+当前版本也支持 RunningHub AI App 接口，包括获取 AI App 可调用节点示例和直接发起 AI App 任务。
+
 这个子目录可以直接作为 Python 包发布根目录使用，也可以单独进入目录后执行构建和上传命令发布到 PyPI。
 
 ## 特性
@@ -70,6 +72,28 @@ asyncio.run(main())
 
 ## 核心能力
 
+### AI App 接口
+
+| 同步方法 | 异步方法 | 说明 |
+|---------|---------|------|
+| `get_ai_app_api_demo()` | `async_get_ai_app_api_demo()` | 获取 AI App 调用示例、节点信息、封面和标签 |
+| `run_ai_app()` | `async_run_ai_app()` | 发起 AI App 任务 |
+| `run_ai_app_with_modifier()` | `async_run_ai_app_with_modifier()` | 使用修改器发起 AI App 任务 |
+| `list_public_models()` | `async_list_public_models()` | 获取公共模型列表，支持类型、名称、基础模型、标签分页筛选 |
+| `run_model_api()` | `async_run_model_api()` | 通用标准模型 API 调用，适用于图像、视频、音频、3D 等标准模型端点 |
+| `preview_model_price()` | `async_preview_model_price()` | 按实际请求参数预估标准模型调用价格 |
+| `wait_for_query_v2_completion()` | `async_wait_for_query_v2_completion()` | 基于 `/openapi/v2/query` 轮询标准模型任务完成 |
+
+### 账户与调试接口
+
+| 同步方法 | 异步方法 | 说明 |
+|---------|---------|------|
+| `get_account_status()` | `async_get_account_status()` | 获取账户信息，包括余额、当前任务数、API 类型 |
+| `list_api_keys()` | `async_list_api_keys()` | 查询 API Key 列表 |
+| `get_queue_status()` | `async_get_queue_status()` | 查询当前 API Key 的队列状态 |
+| `get_webhook_detail()` | `async_get_webhook_detail()` | 根据任务 ID 查询 webhook 事件详情 |
+| `retry_webhook()` | `async_retry_webhook()` | 重新发送指定 webhook 事件 |
+
 ### 任务接口
 
 | 同步方法 | 异步方法 | 说明 |
@@ -136,6 +160,178 @@ modifier = (
 | `audio(node_id, file_name)` | 设置音频文件 |
 | `lora(node_id, file_name)` | 设置 LoRA 文件 |
 | `checkpoint(node_id, name)` | 设置模型名 |
+
+## AI App 使用
+
+AI App 接口适合直接调用 RunningHub 页面上的应用。`webappId` 可以从 AI App 详情页链接中获取，例如 `https://www.runninghub.cn/ai-detail/1937084629516193794` 最后的数字就是 `webappId`。
+
+推荐先读取 AI App 的可调用示例，再按节点修改参数并运行：
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    demo = client.get_ai_app_api_demo("1937084629516193794")
+
+    for node in demo.node_info_list:
+        print(node.node_id, node.field_name, node.field_type, node.description)
+
+    modifier = (
+        modify_nodes()
+        .set("52", "prompt", "把人物发型改成齐耳短发")
+        .set("37", "aspect_ratio", "1:1")
+    )
+
+    task = client.run_ai_app_with_modifier(
+        "1937084629516193794",
+        modifier,
+    )
+    outputs = client.wait_for_completion(task.task_id)
+
+    for output in outputs:
+        print(output.file_url)
+```
+
+如果 AI App 包含 `IMAGE`、`AUDIO`、`VIDEO` 一类输入，通常先上传文件，再把返回的 `fileName` 设置回对应节点的 `fieldValue`：
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+with RunningHubClient(api_key="your-api-key") as client:
+    uploaded = client.upload_image("input.png")
+
+    modifier = (
+        modify_nodes()
+        .set("39", "image", uploaded["fileName"])
+        .set("52", "prompt", "保留人物姿态，改成胶片质感")
+    )
+
+    task = client.run_ai_app_with_modifier("1937084629516193794", modifier)
+    outputs = client.wait_for_completion(task.task_id)
+
+    for output in outputs:
+        print(output.file_url)
+```
+
+AI App 开启加密访问时，可以在运行时传入 `access_password`：
+
+```python
+task = client.run_ai_app(
+    webapp_id="1937084629516193794",
+    node_info_list=[
+        {"nodeId": "52", "fieldName": "prompt", "fieldValue": "一张电影感人像"}
+    ],
+    access_password="your-password",
+)
+```
+
+### 获取公共模型列表
+
+可以通过公共模型列表接口拉取 RunningHub 提供的可用模型，并按类型、名称、基础模型、标签做筛选。
+
+```python
+from runninghub_sdk import RunningHubClient
+
+with RunningHubClient(api_key="your-api-key") as client:
+    models = client.list_public_models(
+        resource_type="UNET",
+        resource_name="realDream",
+        base_models=["Flux2-Klein-9B"],
+        current=1,
+        size=10,
+    )
+
+    print(models.total)
+    for record in models.records:
+        print(record.resource_name, record.resource_type)
+        if record.versions:
+            print(record.versions[0].version_resource_name)
+```
+
+`resource_type` 当前支持文档中的 `UNET`、`CHECKPOINT`、`LORA`、`GGUF`。
+
+## 标准模型 API 使用
+
+标准模型 API 的端点很多，不适合为每个模型单独维护一套方法。SDK 提供了通用调用入口 `run_model_api()`，你只需要传模型端点和对应请求体即可。
+
+例如调用 `f-2-dev/text-to-image`：
+
+```python
+from runninghub_sdk import RunningHubClient
+
+with RunningHubClient(api_key="your-api-key") as client:
+    task = client.run_model_api(
+        "/openapi/v2/rhart-image/f-2-dev/text-to-image",
+        {
+            "12##text": "在一片非洲大草原上，一只真实非洲狮的摄影照片",
+            "41##select": "9:16",
+            "30##value": 1024,
+            "29##value": 1024,
+            "43##file_type": "png",
+        },
+    )
+
+    result = client.wait_for_query_v2_completion(task.task_id)
+    print(result.results)
+```
+
+也可以只传相对路径，SDK 会自动补成 `/openapi/v2/...`：
+
+```python
+task = client.run_model_api(
+    "rhart-audio/text-to-audio/speech-2.8-hd",
+    {
+        "text": "Bonjour! How are you today?",
+        "voice_id": "Wise_Woman",
+        "enable_base64_output": False,
+        "english_normalization": False,
+    },
+)
+```
+
+调用前可以先做价格预估。把原始模型路径换给 `preview_model_price()` 即可，SDK 会自动转换成 `/openapi/v2/price-preview/...`：
+
+```python
+price = client.preview_model_price(
+    "rhart-image/f-2-dev/text-to-image",
+    {
+        "12##text": "一张电影感狮子海报",
+        "41##select": "9:16",
+        "43##file_type": "png",
+    },
+)
+
+print(price.estimated_price, price.currency)
+```
+
+## 账户、队列与 webhook 调试
+
+```python
+from runninghub_sdk import RunningHubClient
+
+with RunningHubClient(api_key="your-api-key") as client:
+    account = client.get_account_status()
+    print(account.remain_coins, account.current_task_counts, account.api_type)
+
+    keys = client.list_api_keys()
+    for key in keys:
+        print(key.key, key.status, key.visible)
+
+    queue = client.get_queue_status()
+    print(queue.api_key_type, queue.running_count, queue.queued_count)
+```
+
+Webhook 调试示例：
+
+```python
+from runninghub_sdk import RunningHubClient
+
+with RunningHubClient(api_key="your-api-key") as client:
+    detail = client.get_webhook_detail("1904154698679771137")
+    print(detail.id, detail.callback_status, detail.retry_count)
+
+    client.retry_webhook(detail.id, detail.webhook_url)
+```
 
 ## 错误处理
 

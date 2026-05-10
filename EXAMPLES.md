@@ -41,6 +41,263 @@ for output in outputs:
 client.close()
 ```
 
+## AI App 使用
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+client = RunningHubClient(api_key="your-api-key")
+
+# 读取 AI App 节点示例
+demo = client.get_ai_app_api_demo("1937084629516193794")
+print("AI App:", demo.webapp_name)
+for node in demo.node_info_list:
+    print(node.node_id, node.field_name, node.field_type, node.field_value)
+
+# 修改 AI App 参数并运行
+modifier = (
+    modify_nodes()
+    .set("52", "prompt", "把人物发型改成齐耳短发")
+    .set("37", "aspect_ratio", "1:1")
+)
+
+task = client.run_ai_app_with_modifier("1937084629516193794", modifier)
+outputs = client.wait_for_completion(task.task_id)
+
+for output in outputs:
+    print(output.file_url)
+
+client.close()
+```
+
+## AI App 上传图片后运行
+
+```python
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+client = RunningHubClient(api_key="your-api-key")
+
+uploaded = client.upload_image("input.png")
+
+modifier = (
+    modify_nodes()
+    .set("39", "image", uploaded["fileName"])
+    .set("52", "prompt", "保留构图，转成杂志封面风格")
+)
+
+task = client.run_ai_app_with_modifier("1937084629516193794", modifier)
+outputs = client.wait_for_completion(task.task_id)
+
+for output in outputs:
+    print(output.file_url)
+
+client.close()
+```
+
+## 异步 AI App 使用
+
+```python
+import asyncio
+
+from runninghub_sdk import RunningHubClient, modify_nodes
+
+
+async def main() -> None:
+    async with RunningHubClient(api_key="your-api-key") as client:
+        demo = await client.async_get_ai_app_api_demo("1937084629516193794")
+        print(demo.webapp_name)
+
+        modifier = modify_nodes().set("52", "prompt", "赛博朋克风格肖像")
+        task = await client.async_run_ai_app_with_modifier(
+            "1937084629516193794",
+            modifier,
+        )
+        outputs = await client.async_wait_for_completion(task.task_id)
+
+        for output in outputs:
+            print(output.file_url)
+
+
+asyncio.run(main())
+```
+
+## 获取公共模型列表
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+models = client.list_public_models(
+    resource_type="UNET",
+    resource_name="realDream",
+    base_models=["Flux2-Klein-9B"],
+    current=1,
+    size=10,
+)
+
+print(f"总数: {models.total}, 当前页: {models.current}/{models.pages}")
+for record in models.records:
+    print(record.resource_name, record.resource_type, record.node_model_name)
+    for tag in record.tags or []:
+        print("  标签:", tag.name)
+    for version in record.versions or []:
+        print("  版本:", version.version, version.version_resource_name)
+
+client.close()
+```
+
+## 异步获取公共模型列表
+
+```python
+import asyncio
+
+from runninghub_sdk import RunningHubClient
+
+
+async def main() -> None:
+    async with RunningHubClient(api_key="your-api-key") as client:
+        models = await client.async_list_public_models(
+            resource_type="LORA",
+            current=1,
+            size=5,
+        )
+        for record in models.records:
+            print(record.resource_name)
+
+
+asyncio.run(main())
+```
+
+## 通用标准模型 API 调用
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+task = client.run_model_api(
+    "rhart-image/f-2-dev/text-to-image",
+    {
+        "12##text": "在一片非洲大草原上，一只真实非洲狮的摄影照片",
+        "41##select": "9:16",
+        "30##value": 1024,
+        "29##value": 1024,
+        "43##file_type": "png",
+    },
+)
+
+result = client.wait_for_query_v2_completion(task.task_id)
+print(result.results)
+
+client.close()
+```
+
+## 标准模型 API 价格预估
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+price = client.preview_model_price(
+    "rhart-image/f-2-dev/text-to-image",
+    {
+        "12##text": "一张电影感狮子海报",
+        "41##select": "9:16",
+        "43##file_type": "png",
+    },
+)
+
+print(price.estimated_price, price.currency, price.price_text)
+
+client.close()
+```
+
+## 异步标准模型 API 调用
+
+```python
+import asyncio
+
+from runninghub_sdk import RunningHubClient
+
+
+async def main() -> None:
+    async with RunningHubClient(api_key="your-api-key") as client:
+        task = await client.async_run_model_api(
+            "rhart-audio/text-to-audio/speech-2.8-hd",
+            {
+                "text": "Bonjour! How are you today?",
+                "voice_id": "Wise_Woman",
+                "enable_base64_output": False,
+                "english_normalization": False,
+            },
+        )
+        result = await client.async_wait_for_query_v2_completion(task.task_id)
+        print(result.results)
+
+
+asyncio.run(main())
+```
+
+## 获取账户信息和队列状态
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+account = client.get_account_status()
+print(account.remain_coins, account.current_task_counts, account.api_type)
+
+keys = client.list_api_keys()
+for key in keys:
+    print(key.key, key.status, key.created_at)
+
+queue = client.get_queue_status()
+print(queue.api_key_type, queue.running_count, queue.queued_count, queue.total_current_tasks)
+
+client.close()
+```
+
+## 查询并重试 webhook 事件
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+detail = client.get_webhook_detail("1904154698679771137")
+print(detail.id, detail.callback_status, detail.callback_response)
+
+client.retry_webhook(detail.id, detail.webhook_url)
+
+client.close()
+```
+
+## 异步账户与 webhook 接口
+
+```python
+import asyncio
+
+from runninghub_sdk import RunningHubClient
+
+
+async def main() -> None:
+    async with RunningHubClient(api_key="your-api-key") as client:
+        account = await client.async_get_account_status()
+        print(account.remain_coins)
+
+        queue = await client.async_get_queue_status()
+        print(queue.running_count)
+
+        detail = await client.async_get_webhook_detail("1904154698679771137")
+        print(detail.callback_status)
+
+
+asyncio.run(main())
+```
+
 ## 使用节点修改器（推荐）
 
 ```python

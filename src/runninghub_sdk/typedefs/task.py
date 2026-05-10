@@ -164,6 +164,44 @@ class V2QueryResult:
 
 
 @dataclass
+class ModelPricePreview:
+    """模型 API 价格预估结果"""
+
+    error_code: str
+    error_message: str
+    estimated_price: float
+    currency: str
+    price_text: str
+    price_text_en: Optional[str]
+    free_limit: bool
+    free_limit_count: Optional[int]
+    remaining_free_limit_count: Optional[int]
+    is_free_this_call: bool
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ModelPricePreview":
+        """从 API 响应创建"""
+        return cls(
+            error_code=data.get("errorCode", ""),
+            error_message=data.get("errorMessage", ""),
+            estimated_price=float(data.get("estimatedPrice", 0) or 0),
+            currency=data.get("currency", ""),
+            price_text=data.get("priceText", ""),
+            price_text_en=data.get("priceTextEn"),
+            free_limit=bool(data.get("freeLimit", False)),
+            free_limit_count=(
+                int(data["freeLimitCount"])
+                if data.get("freeLimitCount") is not None else None
+            ),
+            remaining_free_limit_count=(
+                int(data["remainingFreeLimitCount"])
+                if data.get("remainingFreeLimitCount") is not None else None
+            ),
+            is_free_this_call=bool(data.get("isFreeThisCall", False)),
+        )
+
+
+@dataclass
 class WaitForCompletionOptions:
     """等待完成选项"""
     poll_interval: float = 2.0  # 轮询间隔(秒)

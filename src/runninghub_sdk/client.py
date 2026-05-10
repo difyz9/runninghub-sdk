@@ -11,8 +11,17 @@ from .typedefs import (
     NodeInput,
     CreateTaskRequest,
     CreateTaskResponse,
+    AccountStatus,
+    ApiKeyInfo,
+    QueueStatus,
+    WebhookDetail,
+    AiAppRunRequest,
+    AiAppApiCallDemo,
+    PublicModelListRequest,
+    PublicModelListResponse,
     TaskOutput,
     V2QueryResult,
+    ModelPricePreview,
     TaskFailedReason,
     WaitForCompletionOptions,
     UploadResponseData,
@@ -181,6 +190,103 @@ class RunningHubClient:
         """
         return self.run(workflow_id, modifier.to_list(), **options)
 
+    def run_ai_app(
+        self,
+        webapp_id: Union[int, str],
+        node_info_list: Optional[List[Union[NodeInput, Dict[str, Any]]]] = None,
+        **options
+    ) -> CreateTaskResponse:
+        """
+        发起 AI App 任务
+
+        Args:
+            webapp_id: AI App ID
+            node_info_list: 节点参数修改列表
+            **options: 其他选项
+                - webhook_url: 回调 URL
+                - instance_type: 实例类型
+                - access_password: 访问密码
+
+        Returns:
+            CreateTaskResponse
+        """
+        request = self._build_ai_app_run_request(webapp_id, node_info_list, options)
+        response = self._post("/task/openapi/ai-app/run", request.to_dict())
+        return CreateTaskResponse.from_dict(response)
+
+    def run_ai_app_with_modifier(
+        self,
+        webapp_id: Union[int, str],
+        modifier: NodeModifier,
+        **options
+    ) -> CreateTaskResponse:
+        """
+        使用节点修改器发起 AI App 任务
+
+        Args:
+            webapp_id: AI App ID
+            modifier: 节点修改器
+            **options: 其他选项
+
+        Returns:
+            CreateTaskResponse
+        """
+        return self.run_ai_app(webapp_id, modifier.to_list(), **options)
+
+    def get_ai_app_api_demo(self, webapp_id: Union[int, str]) -> AiAppApiCallDemo:
+        """
+        获取 AI App API 调用示例和可修改节点信息
+
+        Args:
+            webapp_id: AI App ID
+
+        Returns:
+            AiAppApiCallDemo
+        """
+        response = self._get(
+            "/api/webapp/apiCallDemo",
+            {"webappId": str(webapp_id), "apiKey": self.api_key},
+        )
+        return AiAppApiCallDemo.from_dict(response)
+
+    def list_public_models(
+        self,
+        resource_type: str = "UNET",
+        resource_name: str = "",
+        base_models: Optional[List[str]] = None,
+        tags: Optional[List[int]] = None,
+        current: int = 1,
+        size: int = 10,
+    ) -> PublicModelListResponse:
+        """
+        获取公共模型列表
+
+        Args:
+            resource_type: 模型类型，如 UNET、CHECKPOINT、LORA、GGUF
+            resource_name: 模型名称关键词搜索
+            base_models: 基础模型过滤列表
+            tags: 标签 ID 列表过滤
+            current: 当前页码，从 1 开始
+            size: 每页条数，最大 50
+
+        Returns:
+            PublicModelListResponse
+        """
+        request = PublicModelListRequest(
+            resource_type=resource_type,
+            resource_name=resource_name,
+            base_models=base_models,
+            tags=tags,
+            current=current,
+            size=size,
+        )
+        response = self._post(
+            "/openapi/v2/resource/list",
+            request.to_dict(),
+            include_api_key=False,
+        )
+        return PublicModelListResponse.from_dict(response)
+
     def get_status(self, task_id: str) -> TaskStatus:
         """
         查询任务状态
@@ -193,6 +299,35 @@ class RunningHubClient:
         """
         response = self._post("/task/openapi/status", {"taskId": task_id})
         return TaskStatus(response)
+
+    def get_account_status(self) -> AccountStatus:
+        """获取账户信息"""
+        response = self._post("/uc/openapi/accountStatus", {})
+        return AccountStatus.from_dict(response)
+
+    def list_api_keys(self) -> List[ApiKeyInfo]:
+        """查询 API Key 列表"""
+        response = self._get("/openapi/v2/api-key/list", {})
+        if isinstance(response, list):
+            return [ApiKeyInfo.from_dict(item) for item in response]
+        return []
+
+    def get_queue_status(self) -> QueueStatus:
+        """查询当前 API Key 的队列状态"""
+        response = self._get("/openapi/v2/queue/status", {})
+        return QueueStatus.from_dict(response)
+
+    def get_webhook_detail(self, task_id: str) -> WebhookDetail:
+        """根据 task_id 获取 webhook 事件详情"""
+        response = self._post("/task/openapi/getWebhookDetail", {"taskId": task_id})
+        return WebhookDetail.from_dict(response)
+
+    def retry_webhook(self, webhook_id: str, webhook_url: str) -> None:
+        """重新发送指定 webhook 事件"""
+        self._post(
+            "/task/openapi/retryWebhook",
+            {"webhookId": webhook_id, "webhookUrl": webhook_url},
+        )
 
     def get_outputs(self, task_id: str) -> List[TaskOutput]:
         """
@@ -230,6 +365,47 @@ class RunningHubClient:
         """
         response = self._post("/openapi/v2/query", {"taskId": task_id})
         return V2QueryResult.from_dict(response)
+
+    def run_model_api(
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+    ) -> V2QueryResult:
+        """
+        调用标准模型 API
+
+        Args:
+            endpoint: 标准模型接口路径，可以传完整路径如
+                /openapi/v2/rhart-image/f-2-dev/text-to-image
+                或相对路径如 rhart-image/f-2-dev/text-to-image
+            payload: 接口请求体
+
+        Returns:
+            V2QueryResult
+        """
+        normalized_endpoint = self._normalize_model_endpoint(endpoint)
+        response = self._post(normalized_endpoint, payload, include_api_key=False)
+        return V2QueryResult.from_dict(response)
+
+    def preview_model_price(
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+    ) -> ModelPricePreview:
+        """
+        预估标准模型 API 调用价格
+
+        Args:
+            endpoint: 原始标准模型接口路径
+            payload: 与实际调用相同的请求体
+
+        Returns:
+            ModelPricePreview
+        """
+        normalized_endpoint = self._normalize_model_endpoint(endpoint)
+        preview_endpoint = self._normalize_price_preview_endpoint(normalized_endpoint)
+        response = self._post(preview_endpoint, payload, include_api_key=False)
+        return ModelPricePreview.from_dict(response)
 
     def wait_for_completion(
         self,
@@ -274,6 +450,47 @@ class RunningHubClient:
                 raise TaskError(
                     code=ErrorCode.TASK_STATUS_ERROR,
                     message="任务执行失败",
+                    task_id=task_id,
+                )
+
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                raise TimeoutError(
+                    message=f"等待任务完成超时（{timeout}秒）",
+                    task_id=task_id,
+                    timeout=timeout,
+                )
+
+            sleep(poll_interval)
+
+    def wait_for_query_v2_completion(
+        self,
+        task_id: str,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        on_status_change: Optional[Callable[[TaskStatus], None]] = None,
+    ) -> V2QueryResult:
+        """
+        基于 /openapi/v2/query 等待任务完成
+
+        适合标准模型 API 等直接返回 V2 结构的接口。
+        """
+        import time
+        start_time = time.time()
+
+        while True:
+            result = self.query_v2(task_id)
+
+            if on_status_change:
+                on_status_change(result.status)
+
+            if result.status == TaskStatus.SUCCESS:
+                return result
+
+            if result.status == TaskStatus.FAILED:
+                raise TaskError(
+                    code=ErrorCode.TASK_STATUS_ERROR,
+                    message=result.error_message or "任务执行失败",
                     task_id=task_id,
                 )
 
@@ -458,10 +675,127 @@ class RunningHubClient:
         """异步使用节点修改器发起任务"""
         return await self.async_run(workflow_id, modifier.to_list(), **options)
 
+    async def async_run_ai_app(
+        self,
+        webapp_id: Union[int, str],
+        node_info_list: Optional[List[Union[NodeInput, Dict[str, Any]]]] = None,
+        **options
+    ) -> CreateTaskResponse:
+        """异步发起 AI App 任务"""
+        request = self._build_ai_app_run_request(webapp_id, node_info_list, options)
+        response = await self._async_post("/task/openapi/ai-app/run", request.to_dict())
+        return CreateTaskResponse.from_dict(response)
+
+    async def async_run_model_api(
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+    ) -> V2QueryResult:
+        """异步调用标准模型 API"""
+        normalized_endpoint = self._normalize_model_endpoint(endpoint)
+        response = await self._async_post(
+            normalized_endpoint,
+            payload,
+            include_api_key=False,
+        )
+        return V2QueryResult.from_dict(response)
+
+    async def async_preview_model_price(
+        self,
+        endpoint: str,
+        payload: Dict[str, Any],
+    ) -> ModelPricePreview:
+        """异步预估标准模型 API 调用价格"""
+        normalized_endpoint = self._normalize_model_endpoint(endpoint)
+        preview_endpoint = self._normalize_price_preview_endpoint(normalized_endpoint)
+        response = await self._async_post(
+            preview_endpoint,
+            payload,
+            include_api_key=False,
+        )
+        return ModelPricePreview.from_dict(response)
+
+    async def async_run_ai_app_with_modifier(
+        self,
+        webapp_id: Union[int, str],
+        modifier: NodeModifier,
+        **options
+    ) -> CreateTaskResponse:
+        """异步使用节点修改器发起 AI App 任务"""
+        return await self.async_run_ai_app(webapp_id, modifier.to_list(), **options)
+
+    async def async_get_ai_app_api_demo(
+        self,
+        webapp_id: Union[int, str],
+    ) -> AiAppApiCallDemo:
+        """异步获取 AI App API 调用示例和可修改节点信息"""
+        response = await self._async_get(
+            "/api/webapp/apiCallDemo",
+            {"webappId": str(webapp_id), "apiKey": self.api_key},
+        )
+        return AiAppApiCallDemo.from_dict(response)
+
+    async def async_list_public_models(
+        self,
+        resource_type: str = "UNET",
+        resource_name: str = "",
+        base_models: Optional[List[str]] = None,
+        tags: Optional[List[int]] = None,
+        current: int = 1,
+        size: int = 10,
+    ) -> PublicModelListResponse:
+        """异步获取公共模型列表"""
+        request = PublicModelListRequest(
+            resource_type=resource_type,
+            resource_name=resource_name,
+            base_models=base_models,
+            tags=tags,
+            current=current,
+            size=size,
+        )
+        response = await self._async_post(
+            "/openapi/v2/resource/list",
+            request.to_dict(),
+            include_api_key=False,
+        )
+        return PublicModelListResponse.from_dict(response)
+
     async def async_get_status(self, task_id: str) -> TaskStatus:
         """异步查询任务状态"""
         response = await self._async_post("/task/openapi/status", {"taskId": task_id})
         return TaskStatus(response)
+
+    async def async_get_account_status(self) -> AccountStatus:
+        """异步获取账户信息"""
+        response = await self._async_post("/uc/openapi/accountStatus", {})
+        return AccountStatus.from_dict(response)
+
+    async def async_list_api_keys(self) -> List[ApiKeyInfo]:
+        """异步查询 API Key 列表"""
+        response = await self._async_get("/openapi/v2/api-key/list", {})
+        if isinstance(response, list):
+            return [ApiKeyInfo.from_dict(item) for item in response]
+        return []
+
+    async def async_get_queue_status(self) -> QueueStatus:
+        """异步查询当前 API Key 的队列状态"""
+        response = await self._async_get("/openapi/v2/queue/status", {})
+        return QueueStatus.from_dict(response)
+
+    async def async_get_webhook_detail(self, task_id: str) -> WebhookDetail:
+        """异步根据 task_id 获取 webhook 事件详情"""
+        response = await self._async_post(
+            "/task/openapi/getWebhookDetail",
+            {"taskId": task_id},
+        )
+        return WebhookDetail.from_dict(response)
+
+    async def async_retry_webhook(self, webhook_id: str, webhook_url: str) -> None:
+        """异步重新发送指定 webhook 事件"""
+        await self._async_post(
+            "/task/openapi/retryWebhook",
+            {"webhookId": webhook_id, "webhookUrl": webhook_url},
+        )
 
     async def async_get_outputs(self, task_id: str) -> List[TaskOutput]:
         """异步查询任务结果"""
@@ -506,6 +840,43 @@ class RunningHubClient:
                 raise TaskError(
                     code=ErrorCode.TASK_STATUS_ERROR,
                     message="任务执行失败",
+                    task_id=task_id,
+                )
+
+            elapsed = time.time() - start_time
+            if elapsed >= timeout:
+                raise TimeoutError(
+                    message=f"等待任务完成超时（{timeout}秒）",
+                    task_id=task_id,
+                    timeout=timeout,
+                )
+
+            await async_sleep(poll_interval)
+
+    async def async_wait_for_query_v2_completion(
+        self,
+        task_id: str,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
+        timeout: float = DEFAULT_WAIT_TIMEOUT,
+        on_status_change: Optional[Callable[[TaskStatus], None]] = None,
+    ) -> V2QueryResult:
+        """异步基于 /openapi/v2/query 等待任务完成"""
+        import time
+        start_time = time.time()
+
+        while True:
+            result = await self.async_query_v2(task_id)
+
+            if on_status_change:
+                on_status_change(result.status)
+
+            if result.status == TaskStatus.SUCCESS:
+                return result
+
+            if result.status == TaskStatus.FAILED:
+                raise TaskError(
+                    code=ErrorCode.TASK_STATUS_ERROR,
+                    message=result.error_message or "任务执行失败",
                     task_id=task_id,
                 )
 
@@ -598,11 +969,47 @@ class RunningHubClient:
         prompt_str = await self.async_get_workflow_json(workflow_id)
         return json.loads(prompt_str)
 
+    async def async_query_v2(self, task_id: str) -> V2QueryResult:
+        """异步 V2 查询接口"""
+        response = await self._async_post("/openapi/v2/query", {"taskId": task_id})
+        return V2QueryResult.from_dict(response)
+
     # ==================== 辅助方法 ====================
 
     def create_modifier(self) -> NodeModifier:
         """创建节点修改器"""
         return modify_nodes()
+
+    def _normalize_model_endpoint(self, endpoint: str) -> str:
+        """标准化标准模型 API 路径"""
+        normalized = endpoint.strip()
+        if not normalized:
+            raise ValidationError("标准模型 API 路径不能为空", field="endpoint")
+
+        if normalized.startswith("https://") or normalized.startswith("http://"):
+            prefix = self.base_url.rstrip("/")
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix):]
+            else:
+                raise ValidationError(
+                    "endpoint 必须属于当前 RunningHub base_url",
+                    field="endpoint",
+                )
+
+        if not normalized.startswith("/"):
+            normalized = f"/{normalized}"
+
+        if not normalized.startswith("/openapi/v2/"):
+            normalized = f"/openapi/v2/{normalized.lstrip('/')}"
+
+        return normalized
+
+    def _normalize_price_preview_endpoint(self, endpoint: str) -> str:
+        """根据模型接口路径生成价格预估路径"""
+        if not endpoint.startswith("/openapi/v2/"):
+            raise ValidationError("无效的标准模型 API 路径", field="endpoint")
+        suffix = endpoint[len("/openapi/v2/"):]
+        return f"/openapi/v2/price-preview/{suffix}"
 
     def _build_create_request(
         self,
@@ -629,12 +1036,34 @@ class RunningHubClient:
             use_personal_queue=options.get("use_personal_queue", False),
         )
 
-    def _post(self, endpoint: str, data: Dict[str, Any]) -> Any:
-        """同步POST请求"""
-        # 添加apiKey到请求体
-        data = {**data, "apiKey": self.api_key}
+    def _build_ai_app_run_request(
+        self,
+        webapp_id: Union[int, str],
+        node_info_list: Optional[List[Union[NodeInput, Dict[str, Any]]]],
+        options: Dict[str, Any],
+    ) -> AiAppRunRequest:
+        """构建 AI App 运行请求"""
+        parsed_node_list = None
+        if node_info_list:
+            parsed_node_list = []
+            for item in node_info_list:
+                if isinstance(item, NodeInput):
+                    parsed_node_list.append(item)
+                elif isinstance(item, dict):
+                    parsed_node_list.append(NodeInput.from_dict(item))
+
+        return AiAppRunRequest(
+            webapp_id=webapp_id,
+            node_info_list=parsed_node_list,
+            webhook_url=options.get("webhook_url"),
+            instance_type=options.get("instance_type"),
+            access_password=options.get("access_password"),
+        )
+
+    def _get(self, endpoint: str, params: Dict[str, Any]) -> Any:
+        """同步 GET 请求"""
         try:
-            response = self.sync_client.post(endpoint, json=data)
+            response = self.sync_client.get(endpoint, params=params)
             response.raise_for_status()
             result = response.json()
             return self._handle_response(result)
@@ -643,11 +1072,48 @@ class RunningHubClient:
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
 
-    async def _async_post(self, endpoint: str, data: Dict[str, Any]) -> Any:
+    def _post(
+        self,
+        endpoint: str,
+        data: Dict[str, Any],
+        include_api_key: bool = True,
+    ) -> Any:
+        """同步POST请求"""
+        if include_api_key:
+            data = {**data, "apiKey": self.api_key}
+        try:
+            response = self.sync_client.post(endpoint, json=data)
+            response.raise_for_status()
+            result = response.json()
+            return self._handle_response(result)
+        except httpx.HTTPStatusError as e:~
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def _async_post(
+        self,
+        endpoint: str,
+        data: Dict[str, Any],
+        include_api_key: bool = True,
+    ) -> Any:
         """异步POST请求"""
-        data = {**data, "apiKey": self.api_key}
+        if include_api_key:
+            data = {**data, "apiKey": self.api_key}
         try:
             response = await self.async_client.post(endpoint, json=data)
+            response.raise_for_status()
+            result = response.json()
+            return self._handle_response(result)
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def _async_get(self, endpoint: str, params: Dict[str, Any]) -> Any:
+        """异步 GET 请求"""
+        try:
+            response = await self.async_client.get(endpoint, params=params)
             response.raise_for_status()
             result = response.json()
             return self._handle_response(result)
