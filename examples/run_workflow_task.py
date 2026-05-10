@@ -59,6 +59,16 @@ def get_required_env(name: str) -> str:
     return value
 
 
+def get_required_env_any(*names: str) -> str:
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+
+    joined = ", ".join(names)
+    raise SystemExit(f"Missing required environment variable. Expected one of: {joined}")
+
+
 def bootstrap_env() -> None:
     env_path = REPO_ROOT / ".env"
     load_env_file(env_path)
@@ -187,7 +197,10 @@ def wait_and_print_outputs(client: RunningHubClient, task_id: str) -> None:
 def main() -> int:
     bootstrap_env()
     api_key = get_required_env("RUNNINGHUB_API_KEY")
-    workflow_id = get_required_env("RUNNINGHUB_WORKFLOW_ID")
+    workflow_id = get_required_env_any(
+        "RUNNINGHUB_WORKFLOW_ID",
+        "RUNNINGHUB_QWEN_CAMERA_WORKFLOW_ID",
+    )
 
     try:
         with RunningHubClient(api_key=api_key) as client:

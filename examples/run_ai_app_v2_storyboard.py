@@ -30,6 +30,8 @@ SRC_PATH = REPO_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
 
+import httpx
+
 from runninghub_sdk import RunningHubClient, TaskStatus, load_env_file
 from runninghub_sdk.exceptions import RunningHubError
 
@@ -51,6 +53,38 @@ def get_required_env(name: str) -> str:
 
 def print_section(title: str) -> None:
     print(f"\n=== {title} ===")
+
+
+def build_download_dir(task_id: str) -> Path:
+    base_dir = os.getenv("RUNNINGHUB_AI_APP_V2_DOWNLOAD_DIR", "").strip()
+    if base_dir:
+        return Path(base_dir).expanduser().resolve() / task_id
+    return REPO_ROOT / "downloads" / "ai_app_v2" / task_id
+
+
+def download_results(results: List[Dict[str, Any]], task_id: str) -> None:
+    download_dir = build_download_dir(task_id)
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    print_section("5. Download Results")
+    with httpx.Client(timeout=300.0, follow_redirects=True) as downloader:
+        for index, item in enumerate(results, start=1):
+            url = item.get("url")
+            output_type = item.get("outputType", "unknown")
+            node_id = item.get("nodeId", "")
+            if not url:
+                print(f"[{index}] skipped: missing url, outputType={output_type}, nodeId={node_id}")
+                continue
+
+            file_name = Path(url.split("?", 1)[0]).name
+            target_path = download_dir / file_name
+            response = downloader.get(url)
+            response.raise_for_status()
+            target_path.write_bytes(response.content)
+            print(
+                f"[{index}] downloaded: {target_path} | "
+                f"outputType={output_type} | nodeId={node_id}"
+            )
 
 
 def build_payload() -> Dict[str, Any]:
@@ -247,6 +281,12 @@ def wait_for_result(client: RunningHubClient, task_id: str) -> None:
     print("error_code:", result.error_code)
     print("error_message:", result.error_message)
     print("results:", result.results)
+
+    if result.results:
+        download_results(result.results, task_id)
+    else:
+        print_section("5. Download Results")
+        print("No downloadable results returned.")
 
 
 def main() -> int:
