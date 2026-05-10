@@ -33,10 +33,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/runninghub-ai/runninghub-sdk"
-Documentation = "https://github.com/runninghub-ai/runninghub-sdk/tree/main/runninghub_sdk"
-Repository = "https://github.com/runninghub-ai/runninghub-sdk"
-Issues = "https://github.com/runninghub-ai/runninghub-sdk/issues"
+Homepage = "https://github.com/difyz9/runninghub-sdk"
+Documentation = "https://github.com/difyz9/runninghub-sdk/tree/main/runninghub_sdk"
+Repository = "https://github.com/difyz9/runninghub-sdk"
+Issues = "https://github.com/difyz9/runninghub-sdk/issues"
 
 [build-system]
 requires = ["setuptools>=61.0", "setuptools-scm>=8", "wheel"]
