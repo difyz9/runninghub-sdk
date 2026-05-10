@@ -66,6 +66,32 @@ PYTHONPATH=src python examples/run_workflow_task.py
 
 脚本会先打印工作流前几个节点，方便你确认节点 ID，再提交任务并持续输出状态变化，最后打印生成结果 URL。
 
+## 指定 AI App V2 任务案例
+
+如果你要把某条 `curl /openapi/v2/run/ai-app/{id}` 请求直接换成 SDK 调用，可以参考 [examples/run_ai_app_v2_storyboard.py](examples/run_ai_app_v2_storyboard.py)。
+
+这个脚本使用现有的 `run_model_api()` 调用：
+
+```python
+result = client.run_model_api(
+    "/openapi/v2/run/ai-app/2016407933692678145",
+    payload,
+)
+final_result = client.wait_for_query_v2_completion(result.task_id)
+```
+
+运行方式：
+
+```bash
+PYTHONPATH=src python examples/run_ai_app_v2_storyboard.py
+```
+
+如果你想换成别的 AI App ID，可以在 `.env` 或环境变量中设置：
+
+```bash
+export RUNNINGHUB_AI_APP_V2_ID="2016407933692678145"
+```
+
 ## 基础使用
 
 ```python
