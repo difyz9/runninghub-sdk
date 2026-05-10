@@ -6,6 +6,66 @@
 pip install runninghub-sdk
 ```
 
+如果你要直接验证当前仓库里的本地封装，而不是验证已经安装到环境中的旧版本，推荐在仓库根目录执行：
+
+```bash
+PYTHONPATH=src python examples/smoke_validate_sdk.py
+```
+
+两个案例脚本现在都会优先读取仓库根目录下的 `.env`，并且不会覆盖你已经显式导出的环境变量。
+
+例如可以这样准备：
+
+```bash
+cp .env.example .env
+```
+
+然后按你的实际配置修改 [/.env.example](/Users/apple/opt/difyz_0329/0509/runninghub-sdk/.env.example) 里的值即可。
+
+这个脚本会串行验证：账户状态、队列状态、公共模型列表、标准模型价格预估，以及可选的 AI App 示例读取。
+
+需要的环境变量：
+
+```bash
+export RUNNINGHUB_API_KEY="your-api-key"
+export RUNNINGHUB_AI_APP_ID="1937084629516193794"  # 可选
+```
+
+## SDK 冒烟验证案例
+
+完整脚本见 [examples/smoke_validate_sdk.py](examples/smoke_validate_sdk.py)。这个案例的目标不是跑重任务，而是先验证 SDK 里最关键的一批封装是否可用。
+
+## 真实工作流任务验证案例
+
+如果你要验证 `run()`、`run_with_modifier()`、`get_workflow_json_parsed()` 和 `wait_for_completion()` 这一整条链路，可以直接运行 [examples/run_workflow_task.py](examples/run_workflow_task.py)。
+
+最小运行方式只需要 API Key 和一个可直接运行的工作流 ID：
+
+```bash
+PYTHONPATH=src python examples/run_workflow_task.py
+```
+
+如果这两个值已经写进仓库根目录的 `.env`，就不需要再单独 `export`。
+
+如果你还想顺带验证 `NodeModifier`，再补充对应节点 ID 和参数：
+
+```bash
+export RUNNINGHUB_PROMPT_NODE_ID="6"
+export RUNNINGHUB_PROMPT_TEXT="a cinematic portrait, ultra detailed"
+export RUNNINGHUB_NEGATIVE_PROMPT_NODE_ID="7"
+export RUNNINGHUB_NEGATIVE_PROMPT_TEXT="blurry, low quality"
+export RUNNINGHUB_SAMPLER_NODE_ID="3"
+export RUNNINGHUB_SEED="12345"
+export RUNNINGHUB_STEPS="28"
+export RUNNINGHUB_CFG="7.0"
+export RUNNINGHUB_SIZE_NODE_ID="5"
+export RUNNINGHUB_WIDTH="1024"
+export RUNNINGHUB_HEIGHT="1024"
+PYTHONPATH=src python examples/run_workflow_task.py
+```
+
+脚本会先打印工作流前几个节点，方便你确认节点 ID，再提交任务并持续输出状态变化，最后打印生成结果 URL。
+
 ## 基础使用
 
 ```python

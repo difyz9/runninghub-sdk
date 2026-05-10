@@ -1086,7 +1086,7 @@ class RunningHubClient:
             response.raise_for_status()
             result = response.json()
             return self._handle_response(result)
-        except httpx.HTTPStatusError as e:~
+        except httpx.HTTPStatusError as e:
             raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
