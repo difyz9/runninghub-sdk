@@ -142,6 +142,77 @@ python examples/run_workflow_v2_qwen_camera.py
 
 脚本会自动上传图片并把返回的 `fileName` 回填到 `LoadImage` 节点，然后再提交任务。
 
+## 豆包 Seedance 文生视频案例
+
+如果你要调用豆包 + Seedance 1.5 Pro 文生视频工作流，可以直接参考 [examples/run_workflow_doubao_seedance_video.py](examples/run_workflow_doubao_seedance_video.py)。
+
+这个脚本使用 SDK 任务流接口：
+
+```python
+task = client.run(
+    workflow_id="2004066004755988481",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/run_workflow_doubao_seedance_video.py
+```
+
+如果你想换成别的 workflow ID，可以在 `.env` 或环境变量中设置：
+
+```bash
+export RUNNINGHUB_DOUBAO_VIDEO_WORKFLOW_ID="2004066004755988481"
+```
+
+## DeepSeek 生成文案后驱动豆包视频
+
+如果你希望先用 DeepSeek 生成视频脚本文案，保存到本地 JSON，再把其中的 `video_prompt` 自动喂给豆包工作流，可以直接运行 [examples/run_doubao_video_from_deepseek_prompt.py](examples/run_doubao_video_from_deepseek_prompt.py)。
+
+这条链路会同时依赖两类 key：
+
+- `RUNNINGHUB_API_KEY`：RunningHub OpenAPI key，只用于 SDK 提交工作流任务
+- `DEEPSEEK_API_KEY`：DeepSeek LLM key，只用于生成视频文案 JSON
+
+这两个 key 不是同一个服务的凭证，不能互相替代。
+
+这个脚本会执行三步：
+
+1. 调用 [examples/deepseek_video_prompt.py](examples/deepseek_video_prompt.py) 生成结构化 JSON
+2. 保存到本地 `outputs/deepseek_doubao_video_prompt.json`
+3. 读取其中的 `video_prompt`，通过 SDK 的 `run()` 提交到 `2004066004755988481`
+
+运行方式：
+
+```bash
+python examples/run_doubao_video_from_deepseek_prompt.py
+```
+
+最小配置建议：
+
+```bash
+cp .env.example .env
+```
+
+然后至少确认这两个值已经填对：
+
+```dotenv
+RUNNINGHUB_API_KEY=your-runninghub-key
+DEEPSEEK_API_KEY=your-deepseek-key
+```
+
+默认回填的是豆包工作流里节点 `1` 的 `prompt` 字段。如果你的工作流节点有变化，可以在 `.env` 里改：
+
+```bash
+export RUNNINGHUB_DOUBAO_VIDEO_PROMPT_NODE_ID="1"
+```
+
 ## 基础使用
 
 ```python

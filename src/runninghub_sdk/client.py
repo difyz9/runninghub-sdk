@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+from pathlib import Path
 from typing import Optional, List, Dict, Any, Union, Callable, BinaryIO
+from urllib.parse import urlparse, unquote
 
 import httpx
 
@@ -352,6 +354,61 @@ class RunningHubClient:
                 failed_reason=response["failedReason"],
             )
         return []
+
+    def download_file(
+        self,
+        url: str,
+        output_path: Union[str, Path],
+        overwrite: bool = True,
+    ) -> Path:
+        """下载任意 URL 到本地文件。"""
+        path = Path(output_path)
+        if path.exists() and not overwrite:
+            raise ValidationError("目标文件已存在", field="output_path")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with httpx.stream("GET", url, timeout=self.timeout * 3) as response:
+                response.raise_for_status()
+                with open(path, "wb") as file_obj:
+                    for chunk in response.iter_bytes():
+                        file_obj.write(chunk)
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"下载失败: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"下载请求失败: {str(e)}", e)
+
+        return path
+
+    def download_outputs(
+        self,
+        outputs: List[TaskOutput],
+        output_dir: Union[str, Path],
+        overwrite: bool = True,
+    ) -> List[Path]:
+        """下载任务输出列表到本地目录。"""
+        base_dir = Path(output_dir)
+        downloaded_paths: List[Path] = []
+
+        for index, output in enumerate(outputs, start=1):
+            filename = self._build_output_filename(output, index)
+            file_path = base_dir / filename
+            downloaded_paths.append(
+                self.download_file(output.file_url, file_path, overwrite=overwrite)
+            )
+
+        return downloaded_paths
+
+    def download_task_outputs(
+        self,
+        task_id: str,
+        output_dir: Union[str, Path],
+        overwrite: bool = True,
+    ) -> List[Path]:
+        """根据 task_id 查询并下载全部输出到本地目录。"""
+        outputs = self.get_outputs(task_id)
+        return self.download_outputs(outputs, output_dir, overwrite=overwrite)
 
     def query_v2(self, task_id: str) -> V2QueryResult:
         """
@@ -819,6 +876,62 @@ class RunningHubClient:
             )
         return []
 
+    async def async_download_file(
+        self,
+        url: str,
+        output_path: Union[str, Path],
+        overwrite: bool = True,
+    ) -> Path:
+        """异步下载任意 URL 到本地文件。"""
+        path = Path(output_path)
+        if path.exists() and not overwrite:
+            raise ValidationError("目标文件已存在", field="output_path")
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout * 3) as client:
+                async with client.stream("GET", url) as response:
+                    response.raise_for_status()
+                    with open(path, "wb") as file_obj:
+                        async for chunk in response.aiter_bytes():
+                            file_obj.write(chunk)
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"下载失败: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"下载请求失败: {str(e)}", e)
+
+        return path
+
+    async def async_download_outputs(
+        self,
+        outputs: List[TaskOutput],
+        output_dir: Union[str, Path],
+        overwrite: bool = True,
+    ) -> List[Path]:
+        """异步下载任务输出列表到本地目录。"""
+        base_dir = Path(output_dir)
+        downloaded_paths: List[Path] = []
+
+        for index, output in enumerate(outputs, start=1):
+            filename = self._build_output_filename(output, index)
+            file_path = base_dir / filename
+            downloaded_paths.append(
+                await self.async_download_file(output.file_url, file_path, overwrite=overwrite)
+            )
+
+        return downloaded_paths
+
+    async def async_download_task_outputs(
+        self,
+        task_id: str,
+        output_dir: Union[str, Path],
+        overwrite: bool = True,
+    ) -> List[Path]:
+        """异步根据 task_id 查询并下载全部输出到本地目录。"""
+        outputs = await self.async_get_outputs(task_id)
+        return await self.async_download_outputs(outputs, output_dir, overwrite=overwrite)
+
     async def async_wait_for_completion(
         self,
         task_id: str,
@@ -1017,6 +1130,16 @@ class RunningHubClient:
             normalized = f"/openapi/v2/{normalized.lstrip('/')}"
 
         return normalized
+
+    def _build_output_filename(self, output: TaskOutput, index: int) -> str:
+        """根据输出 URL 和类型构建本地文件名。"""
+        parsed = urlparse(output.file_url)
+        candidate = Path(unquote(parsed.path)).name
+        if candidate:
+            return candidate
+
+        suffix = f".{output.file_type}" if output.file_type else ""
+        return f"output_{index:03d}_node_{output.node_id}{suffix}"
 
     def _normalize_price_preview_endpoint(self, endpoint: str) -> str:
         """根据模型接口路径生成价格预估路径"""
