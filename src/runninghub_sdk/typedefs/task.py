@@ -142,7 +142,7 @@ class TaskFailedReason:
 class V2QueryResult:
     """V2查询结果"""
     task_id: str
-    status: TaskStatus
+    status: Optional[TaskStatus]
     error_code: str
     error_message: str
     results: Optional[List[Dict[str, str]]]
@@ -152,9 +152,10 @@ class V2QueryResult:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "V2QueryResult":
         """从API响应创建"""
+        raw_status = data.get("status", "")
         return cls(
-            task_id=data["taskId"],
-            status=TaskStatus(data["status"]),
+            task_id=data.get("taskId", ""),
+            status=TaskStatus(raw_status) if raw_status else None,
             error_code=data.get("errorCode", ""),
             error_message=data.get("errorMessage", ""),
             results=data.get("results"),

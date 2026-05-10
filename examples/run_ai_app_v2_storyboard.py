@@ -25,6 +25,11 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = REPO_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
 from runninghub_sdk import RunningHubClient, TaskStatus, load_env_file
 from runninghub_sdk.exceptions import RunningHubError
 
@@ -33,7 +38,7 @@ DEFAULT_AI_APP_ID = "2016407933692678145"
 
 
 def bootstrap_env() -> None:
-    env_path = Path(__file__).resolve().parents[1] / ".env"
+    env_path = REPO_ROOT / ".env"
     load_env_file(env_path)
 
 
@@ -190,13 +195,31 @@ def print_request_preview(payload: Dict[str, Any], ai_app_id: str) -> None:
         )
 
 
-def submit_task(client: RunningHubClient, ai_app_id: str, payload: Dict[str, Any]) -> str:
+def submit_task(
+    client: RunningHubClient,
+    ai_app_id: str,
+    payload: Dict[str, Any],
+) -> str | None:
     print_section("2. Submit Task")
     result = client.run_model_api(f"/openapi/v2/run/ai-app/{ai_app_id}", payload)
     print("task_id:", result.task_id)
     print("status:", result.status)
     print("error_code:", result.error_code)
     print("error_message:", result.error_message)
+
+    if result.error_code and result.error_code != "0":
+        print("submit_failed: True")
+        print(
+            "submit_failure_reason:",
+            f"error_code={result.error_code}, error_message={result.error_message}",
+        )
+        return None
+
+    if not result.task_id:
+        print("submit_failed: True")
+        print("submit_failure_reason: task_id is empty")
+        return None
+
     return result.task_id
 
 
@@ -237,6 +260,8 @@ def main() -> int:
     try:
         with RunningHubClient(api_key=api_key) as client:
             task_id = submit_task(client, ai_app_id, payload)
+            if not task_id:
+                return 1
             wait_for_result(client, task_id)
     except RunningHubError as exc:
         print(f"AI App V2 task failed: {exc}", file=sys.stderr)

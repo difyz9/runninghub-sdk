@@ -22,6 +22,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_PATH = REPO_ROOT / "src"
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
 from runninghub_sdk import RunningHubClient, load_env_file
 from runninghub_sdk.exceptions import RunningHubError
 
@@ -34,7 +39,7 @@ def get_required_env(name: str) -> str:
 
 
 def bootstrap_env() -> None:
-    env_path = Path(__file__).resolve().parents[1] / ".env"
+    env_path = REPO_ROOT / ".env"
     load_env_file(env_path)
 
 

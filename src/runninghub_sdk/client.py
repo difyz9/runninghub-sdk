@@ -481,7 +481,14 @@ class RunningHubClient:
         while True:
             result = self.query_v2(task_id)
 
-            if on_status_change:
+            if result.error_code and result.error_code != "0" and not result.task_id:
+                raise TaskError(
+                    code=ErrorCode.TASK_STATUS_ERROR,
+                    message=result.error_message or "任务执行失败",
+                    task_id=task_id,
+                )
+
+            if on_status_change and result.status is not None:
                 on_status_change(result.status)
 
             if result.status == TaskStatus.SUCCESS:
@@ -867,7 +874,14 @@ class RunningHubClient:
         while True:
             result = await self.async_query_v2(task_id)
 
-            if on_status_change:
+            if result.error_code and result.error_code != "0" and not result.task_id:
+                raise TaskError(
+                    code=ErrorCode.TASK_STATUS_ERROR,
+                    message=result.error_message or "任务执行失败",
+                    task_id=task_id,
+                )
+
+            if on_status_change and result.status is not None:
                 on_status_change(result.status)
 
             if result.status == TaskStatus.SUCCESS:
@@ -1190,6 +1204,9 @@ class RunningHubClient:
 
     def _handle_response(self, result: Dict[str, Any]) -> Any:
         """处理API响应"""
+        if "code" not in result:
+            return result
+
         code = result.get("code", 0)
         if code != 0:
             raise RunningHubError.from_api_response(code, result.get("msg", "未知错误"))

@@ -92,6 +92,56 @@ PYTHONPATH=src python examples/run_ai_app_v2_storyboard.py
 export RUNNINGHUB_AI_APP_V2_ID="2016407933692678145"
 ```
 
+## 指定 Workflow V2 任务案例
+
+如果这是普通 RunningHub 工作流，更推荐直接走 SDK 的任务流接口，可以参考 [examples/run_workflow_v2_qwen_camera.py](examples/run_workflow_v2_qwen_camera.py)。
+
+这个脚本实际使用的是：
+
+```python
+task = client.run(
+    workflow_id="2051509626218270722",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/run_workflow_v2_qwen_camera.py
+```
+
+如果你想换成别的 workflow ID，可以在 `.env` 或环境变量中设置：
+
+```bash
+export RUNNINGHUB_QWEN_CAMERA_WORKFLOW_ID="2051509626218270722"
+```
+
+如果你要直接验证 `NodeModifier`，这个脚本也已经内置了该工作流的一组默认节点：
+
+- 正向提示词节点：`147`
+- 负向提示词节点：`143`
+- 采样器节点：`137`
+- 输入图片节点：`106`
+
+例如：
+
+```bash
+export RUNNINGHUB_QWEN_CAMERA_POSITIVE_PROMPT="multi angle camera control, cinematic lighting"
+export RUNNINGHUB_QWEN_CAMERA_NEGATIVE_PROMPT="blurry, low quality"
+export RUNNINGHUB_QWEN_CAMERA_SEED="12345"
+export RUNNINGHUB_QWEN_CAMERA_STEPS="28"
+export RUNNINGHUB_QWEN_CAMERA_CFG="7.0"
+export RUNNINGHUB_QWEN_CAMERA_IMAGE_PATH="./assets/input.png"
+python examples/run_workflow_v2_qwen_camera.py
+```
+
+脚本会自动上传图片并把返回的 `fileName` 回填到 `LoadImage` 节点，然后再提交任务。
+
 ## 基础使用
 
 ```python
