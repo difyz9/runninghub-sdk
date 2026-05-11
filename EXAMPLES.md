@@ -92,6 +92,40 @@ PYTHONPATH=src python examples/run_ai_app_v2_storyboard.py
 export RUNNINGHUB_AI_APP_V2_ID="2016407933692678145"
 ```
 
+## Flux.1 Krea Dev 文生图 AI App
+
+如果你要把一条 `curl /openapi/v2/run/ai-app/1950946384071557121` 的文生图请求直接换成 SDK 调用，可以参考 [examples/txt2img/run_ai_app_flux_krea_text_to_image.py](examples/txt2img/run_ai_app_flux_krea_text_to_image.py)。
+
+这个脚本默认已经内置了你提供的三个节点：
+
+- 节点 `53`：文生图提示词
+- 节点 `52`：图像比例
+- 节点 `56`：批量生成数量
+
+运行方式：
+
+```bash
+python examples/txt2img/run_ai_app_flux_krea_text_to_image.py
+```
+
+如果你想临时覆盖提示词、比例或批量数，可以直接传参数：
+
+```bash
+python examples/txt2img/run_ai_app_flux_krea_text_to_image.py \
+    --prompt "a cinematic portrait of a cyberpunk biker woman in neon city night" \
+    --aspect-ratio "9:16 portrait 768x1344" \
+    --batch-size 2
+```
+
+也支持通过环境变量覆盖默认值：
+
+```bash
+export RUNNINGHUB_FLUX_KREA_PROMPT="your prompt"
+export RUNNINGHUB_FLUX_KREA_ASPECT_RATIO="1:1 square 1024x1024"
+export RUNNINGHUB_FLUX_KREA_BATCH_SIZE="1"
+python examples/txt2img/run_ai_app_flux_krea_text_to_image.py
+```
+
 ## 指定 Workflow V2 任务案例
 
 如果这是普通 RunningHub 工作流，更推荐直接走 SDK 的任务流接口，可以参考 [examples/run_workflow_v2_qwen_camera.py](examples/run_workflow_v2_qwen_camera.py)。
@@ -229,7 +263,19 @@ result = client.run_model_api(
 final_result = client.wait_for_query_v2_completion(result.task_id)
 ```
 
-运行方式：
+## DeepSeek 生成首尾帧视频提示词
+
+如果你要先用 DeepSeek 生成首帧、尾帧以及首尾帧视频工作流可直接使用的提示词，可以运行 [examples/first2last/deepseek_first2last_prompt.py](examples/first2last/deepseek_first2last_prompt.py)。
+
+这个脚本会返回并保存一份结构化 JSON，默认包含这些字段：
+
+- `first_frame_prompt`：首帧图片提示词
+- `last_frame_prompt`：尾帧图片提示词
+- `transition_prompt`：从首帧过渡到尾帧的镜头和动作描述
+- `positive_prompt`：可直接喂给首尾帧视频工作流的正向提示词
+- `negative_prompt`：负向提示词
+
+AI App 图生视频运行方式：
 
 ```bash
 python examples/img2video/img2video.py
@@ -255,6 +301,27 @@ python examples/img2video/img2video.py
 ```bash
 export RUNNINGHUB_IMG2VIDEO_TEXT="轻微镜头运动，人物自然呼吸感，电影感光影"
 python examples/img2video/img2video.py
+```
+
+DeepSeek 首尾帧提示词运行方式：
+
+```bash
+python examples/first2last/deepseek_first2last_prompt.py
+```
+
+也可以直接在命令行里覆盖主题、风格和镜头语言：
+
+```bash
+python examples/first2last/deepseek_first2last_prompt.py \
+    --idea "A white fox spirit walks out of a winter shrine and transforms into a girl under lantern light." \
+    --style "cinematic, fantasy, ultra detailed, elegant lighting" \
+    --camera "wide shot that transitions into a medium close-up"
+```
+
+脚本默认会把 JSON 保存到 `outputs/deepseek_first2last_prompt.json`。如果只想换模型或输出路径，也可以追加：
+
+```bash
+python examples/first2last/deepseek_first2last_prompt.py --model deepseek-chat --output outputs/custom_first2last_prompt.json
 ```
 
 ## Seedance 2.0 图生视频案例
