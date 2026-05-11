@@ -126,6 +126,42 @@ export RUNNINGHUB_FLUX_KREA_BATCH_SIZE="1"
 python examples/txt2img/run_ai_app_flux_krea_text_to_image.py
 ```
 
+## 人物或场景设定图 AI App
+
+如果你要调用 `人物或场景设定图` 这个 AI App，并且默认按场景模式生成设定图，可以直接运行 [examples/txt2img/run_ai_app_scene_setting.py](examples/txt2img/run_ai_app_scene_setting.py)。
+
+这个脚本对应 API `2023042898589130753`，会先通过 SDK 的 `get_ai_app_api_demo()` 拉取当前可修改节点，再回填这几个场景模式常用参数：
+
+- 节点 `36/prompt`：固定回填为 `2`，表示场景设定图
+- 节点 `7/aspectRatio`：默认 `16:9`
+- 节点 `41/prompt`：分割方式，默认 `1` 表示不分割
+- 节点 `19/prompt`：场景提示词
+- 节点 `4/image`：可选参考图，本地文件会先上传再回填
+
+运行方式：
+
+```bash
+python examples/txt2img/run_ai_app_scene_setting.py
+```
+
+如果你想临时覆盖提示词、分割方式或参考图，可以直接传参数：
+
+```bash
+python examples/txt2img/run_ai_app_scene_setting.py \
+    --prompt "ancient cliffside temple city at sunrise, cinematic wide shot, volumetric fog" \
+    --split-mode 2 \
+    --reference-image ./examples/img/scene_ref.png
+```
+
+也支持通过环境变量覆盖默认值：
+
+```bash
+export RUNNINGHUB_SCENE_SETTING_PROMPT="your scene prompt"
+export RUNNINGHUB_SCENE_SETTING_ASPECT_RATIO="16:9"
+export RUNNINGHUB_SCENE_SETTING_SPLIT_MODE="1"
+python examples/txt2img/run_ai_app_scene_setting.py
+```
+
 ## 指定 Workflow V2 任务案例
 
 如果这是普通 RunningHub 工作流，更推荐直接走 SDK 的任务流接口，可以参考 [examples/run_workflow_v2_qwen_camera.py](examples/run_workflow_v2_qwen_camera.py)。
