@@ -213,6 +213,50 @@ DEEPSEEK_API_KEY=your-deepseek-key
 export RUNNINGHUB_DOUBAO_VIDEO_PROMPT_NODE_ID="1"
 ```
 
+## AI App 图生视频案例
+
+如果你要把这条 `curl /openapi/v2/run/ai-app/2028770613413814273` 请求换成 SDK 调用，可以直接运行 [examples/img2video/img2video.py](examples/img2video/img2video.py)。
+
+这个脚本会先上传本地图片，再把上传返回的 `fileName` 回填到 AI App 的节点 `34/image`，同时支持给节点 `374/text` 传一个可选的简单提示词。
+
+底层调用方式是：
+
+```python
+result = client.run_model_api(
+    "/openapi/v2/run/ai-app/2028770613413814273",
+    payload,
+)
+final_result = client.wait_for_query_v2_completion(result.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/img2video/img2video.py
+```
+
+这个脚本现在已经内置了一张默认示例图和一条默认提示词，所以只要 API Key 正确，直接运行也可以：
+
+```bash
+export RUNNINGHUB_API_KEY="your-runninghub-key"
+python examples/img2video/img2video.py
+```
+
+最小配置：
+
+```bash
+export RUNNINGHUB_API_KEY="your-runninghub-key"
+export RUNNINGHUB_IMG2VIDEO_IMAGE_PATH="./examples/img/ComfyUI_00001_lemgi_1778400809.png"
+python examples/img2video/img2video.py
+```
+
+如果你还想传一个简单提示词，可以再加：
+
+```bash
+export RUNNINGHUB_IMG2VIDEO_TEXT="轻微镜头运动，人物自然呼吸感，电影感光影"
+python examples/img2video/img2video.py
+```
+
 ## Seedance 2.0 图生视频案例
 
 如果你要调用 Seedance 2.0 图生视频工作流，可以参考 [examples/run_workflow_seedance_image_to_video.py](examples/run_workflow_seedance_image_to_video.py)。
@@ -295,6 +339,23 @@ export RUNNINGHUB_FIRST2LAST_POSITIVE_PROMPT="cinematic temple corridor, slow pu
 export RUNNINGHUB_FIRST2LAST_NEGATIVE_PROMPT="blurry, low quality, overexposed, static frame, bad anatomy"
 export RUNNINGHUB_FIRST2LAST_SEED="12345"
 python examples/first2last/run_workflow_wan22_first2last_video.py
+```
+
+如果你要把 [examples/first2last/download](/Users/apple/opt/difyz_0329/0509/runninghub-sdk/examples/first2last/download) 里的图片按顺序批量做成首尾帧视频，可以直接运行 [examples/first2last/run_batch_first2last_from_downloads.py](/Users/apple/opt/difyz_0329/0509/runninghub-sdk/examples/first2last/run_batch_first2last_from_downloads.py)。
+
+这个脚本会按文件名排序后使用相邻两张图配对：第 1 张到第 2 张，第 2 张到第 3 张，依次类推。
+
+运行方式：
+
+```bash
+python examples/first2last/run_batch_first2last_from_downloads.py
+```
+
+如果图片目录不是默认的 `examples/first2last/download`，可以覆盖：
+
+```bash
+export RUNNINGHUB_FIRST2LAST_BATCH_INPUT_DIR="./your-image-dir"
+python examples/first2last/run_batch_first2last_from_downloads.py
 ```
 
 ## DaSiWa 首尾帧视频案例
@@ -384,6 +445,77 @@ export RUNNINGHUB_FUSIONX_NEGATIVE_PROMPT="blurry, low quality, static frame, wa
 export RUNNINGHUB_FUSIONX_DURATION_SECONDS="5"
 export RUNNINGHUB_FUSIONX_SEED="12345"
 python examples/demo02/run_workflow_fusionx_first2last_video.py
+```
+
+## MoviiGen 图生视频 + MMAudio 案例
+
+如果你要调用 MoviiGen 图生视频并带 MMAudio 音效的工作流 `1923649885118058498`，可以直接运行 [examples/demo03/run_workflow_moviigen_mmaudio_video.py](examples/demo03/run_workflow_moviigen_mmaudio_video.py)。
+
+这个脚本默认支持你给出的最小请求，也就是空 `nodeInfoList` 直接提交：
+
+```python
+task = client.run(
+    workflow_id="1923649885118058498",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/demo03/run_workflow_moviigen_mmaudio_video.py
+```
+
+这个案例里我只开放了线上已经确认存在的可写节点：
+
+- 输入图片是 `LoadImage` 节点 `62`
+- 正向提示词和负向提示词在 `WanVideoTextEncode` 节点 `27`
+- 采样种子在 `WanVideoSampler` 节点 `29/seed`
+- 缩放尺寸在 `ImageResize+` 节点 `63/width,height`
+- 帧数在 `JWInteger` 节点 `65/value`
+
+例如：
+
+```bash
+export RUNNINGHUB_MOVIIGEN_IMAGE_PATH="./examples/img/ComfyUI_00001_lemgi_1778400809.png"
+export RUNNINGHUB_MOVIIGEN_POSITIVE_PROMPT="Republic of China era railway station at winter night, elegant qipao woman walking with suitcase, cinematic motion, realistic atmosphere"
+export RUNNINGHUB_MOVIIGEN_NEGATIVE_PROMPT="blurry, low quality, static frame, distorted hands, extra limbs"
+export RUNNINGHUB_MOVIIGEN_WIDTH="512"
+export RUNNINGHUB_MOVIIGEN_HEIGHT="640"
+export RUNNINGHUB_MOVIIGEN_FRAME_COUNT="49"
+export RUNNINGHUB_MOVIIGEN_SEED="12345"
+python examples/demo03/run_workflow_moviigen_mmaudio_video.py
+```
+
+## Yunjin 电影级运镜图生视频案例
+
+如果你要调用这个工作流 `1930199609451384834`，可以直接运行 [examples/txt2img/yunjin/run_workflow_yunjin_camera_image_to_video.py](/Users/apple/opt/difyz_0329/0509/runninghub-sdk/examples/txt2img/yunjin/run_workflow_yunjin_camera_image_to_video.py)。
+
+这个脚本默认支持空 `nodeInfoList` 直接提交，但同时也开放了线上已经确认存在的真实节点：
+
+- 输入图片：`52`
+- 正向提示词：`6/text`
+- 负向提示词：`7/text`
+- 采样器：`3`
+
+直接运行：
+
+```bash
+python examples/txt2img/yunjin/run_workflow_yunjin_camera_image_to_video.py
+```
+
+如果你要覆盖图片和提示词：
+
+```bash
+export RUNNINGHUB_YUNJIN_IMAGE_PATH="./examples/img/ComfyUI_00001_lemgi_1778400809.png"
+export RUNNINGHUB_YUNJIN_POSITIVE_PROMPT="cinematic camera movement, subtle character motion, rich lighting, stable image-to-video transition"
+export RUNNINGHUB_YUNJIN_NEGATIVE_PROMPT="blurry, low quality, static frame, distorted anatomy"
+export RUNNINGHUB_YUNJIN_SEED="12345"
+python examples/txt2img/yunjin/run_workflow_yunjin_camera_image_to_video.py
 ```
 
 ## 最受欢迎美学文生图案例

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union, Callable, BinaryIO
 from urllib.parse import urlparse, unquote
@@ -581,7 +582,7 @@ class RunningHubClient:
 
     def upload_file(
         self,
-        file: Union[BinaryIO, bytes, str],
+        file: Union[BinaryIO, bytes, str, os.PathLike[str]],
         filename: Optional[str] = None
     ) -> UploadResponseData:
         """
@@ -594,11 +595,11 @@ class RunningHubClient:
         Returns:
             UploadResponseData
         """
-        if isinstance(file, str):
+        if isinstance(file, (str, os.PathLike)):
             # 文件路径
-            import os
-            actual_filename = filename or os.path.basename(file)
-            with open(file, "rb") as f:
+            file_path = Path(file)
+            actual_filename = filename or file_path.name
+            with open(file_path, "rb") as f:
                 file_content = f.read()
         elif isinstance(file, bytes):
             file_content = file
@@ -613,7 +614,7 @@ class RunningHubClient:
         response = self._upload("/openapi/v2/media/upload/binary", files)
         return UploadResponseData.from_dict(response)
 
-    def upload_image(self, file: Union[BinaryIO, bytes, str]) -> Dict[str, str]:
+    def upload_image(self, file: Union[BinaryIO, bytes, str, os.PathLike[str]]) -> Dict[str, str]:
         """
         上传图片（便捷方法）
 
@@ -1023,24 +1024,28 @@ class RunningHubClient:
 
     async def async_upload_file(
         self,
-        file: Union[BinaryIO, bytes, str]
+        file: Union[BinaryIO, bytes, str, os.PathLike[str]]
     ) -> UploadResponseData:
         """异步上传文件"""
-        if isinstance(file, str):
-            with open(file, "rb") as f:
+        if isinstance(file, (str, os.PathLike)):
+            file_path = Path(file)
+            actual_filename = file_path.name
+            with open(file_path, "rb") as f:
                 file_content = f.read()
         elif isinstance(file, bytes):
             file_content = file
+            actual_filename = "upload.bin"
         else:
             file_content = file.read()
+            actual_filename = getattr(file, 'name', 'upload.bin')
 
-        files = {"file": ("file", file_content)}
+        files = {"file": (actual_filename, file_content)}
         response = await self._async_upload("/openapi/v2/media/upload/binary", files)
         return UploadResponseData.from_dict(response)
 
     async def async_upload_image(
         self,
-        file: Union[BinaryIO, bytes, str]
+        file: Union[BinaryIO, bytes, str, os.PathLike[str]]
     ) -> Dict[str, str]:
         """异步上传图片"""
         result = await self.async_upload_file(file)
