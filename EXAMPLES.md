@@ -213,6 +213,291 @@ DEEPSEEK_API_KEY=your-deepseek-key
 export RUNNINGHUB_DOUBAO_VIDEO_PROMPT_NODE_ID="1"
 ```
 
+## Seedance 2.0 图生视频案例
+
+如果你要调用 Seedance 2.0 图生视频工作流，可以参考 [examples/run_workflow_seedance_image_to_video.py](examples/run_workflow_seedance_image_to_video.py)。
+
+这个脚本默认对应工作流 `2037036284312559617`，底层还是走 SDK 的任务流接口：
+
+```python
+task = client.run(
+    workflow_id="2037036284312559617",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+同时它也支持可选的图生视频参数覆盖：
+
+- `RUNNINGHUB_SEEDANCE_FIRST_FRAME_PATH`：首帧图片，本地文件会先上传再回填到 `LoadImage` 节点 `2`
+- `RUNNINGHUB_SEEDANCE_LAST_FRAME_PATH`：尾帧图片，本地文件会先上传再回填到 `LoadImage` 节点 `3`
+- `RUNNINGHUB_SEEDANCE_PROMPT`：视频描述词，回填到主节点 `1/prompt`
+- `RUNNINGHUB_SEEDANCE_RESOLUTION`、`RUNNINGHUB_SEEDANCE_DURATION`、`RUNNINGHUB_SEEDANCE_RATIO`
+- `RUNNINGHUB_SEEDANCE_SEED`、`RUNNINGHUB_SEEDANCE_GENERATE_AUDIO`
+
+运行方式：
+
+```bash
+python examples/run_workflow_seedance_image_to_video.py
+```
+
+如果你只想按默认工作流参数直接跑，不需要额外设置 `nodeInfoList`。
+
+如果你要传入首尾帧和 prompt，可以这样：
+
+```bash
+export RUNNINGHUB_SEEDANCE_FIRST_FRAME_PATH="./examples/img/first.png"
+export RUNNINGHUB_SEEDANCE_LAST_FRAME_PATH="./examples/img/last.png"
+export RUNNINGHUB_SEEDANCE_PROMPT="epic temple knights, cinematic camera movement, realistic lighting"
+python examples/run_workflow_seedance_image_to_video.py
+```
+
+## Wan 2.2 首尾帧视频案例
+
+如果你要调用首尾帧生成视频工作流 `2011275998205054977`，可以直接运行 [examples/first2last/run_workflow_wan22_first2last_video.py](examples/first2last/run_workflow_wan22_first2last_video.py)。
+
+这个脚本默认也支持最原始的空 `nodeInfoList` 提交方式，对应你给出的 curl：
+
+```python
+task = client.run(
+    workflow_id="2011275998205054977",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/first2last/run_workflow_wan22_first2last_video.py
+```
+
+如果你要把本地首帧和尾帧上传后再提交，可以设置：
+
+- `RUNNINGHUB_FIRST2LAST_FIRST_FRAME_PATH`：回填到远端工作流 `ImageLoader` 节点 `43`
+- `RUNNINGHUB_FIRST2LAST_LAST_FRAME_PATH`：回填到远端工作流 `ImageLoader` 节点 `44`
+- `RUNNINGHUB_FIRST2LAST_POSITIVE_PROMPT`：回填到 `WanVideoTextEncode` 节点 `30/positive_prompt`
+- `RUNNINGHUB_FIRST2LAST_NEGATIVE_PROMPT`：回填到 `WanVideoTextEncode` 节点 `30/negative_prompt`
+- `RUNNINGHUB_FIRST2LAST_SEED`：同时覆盖两个采样器节点 `27` 和 `28` 的 `seed`
+
+例如：
+
+```bash
+export RUNNINGHUB_FIRST2LAST_FIRST_FRAME_PATH="./examples/img/first.png"
+export RUNNINGHUB_FIRST2LAST_LAST_FRAME_PATH="./examples/img/last.png"
+export RUNNINGHUB_FIRST2LAST_POSITIVE_PROMPT="cinematic temple corridor, slow push-in, coherent motion, realistic lighting"
+export RUNNINGHUB_FIRST2LAST_NEGATIVE_PROMPT="blurry, low quality, overexposed, static frame, bad anatomy"
+export RUNNINGHUB_FIRST2LAST_SEED="12345"
+python examples/first2last/run_workflow_wan22_first2last_video.py
+```
+
+## DaSiWa 首尾帧视频案例
+
+如果你要调用 DaSiWa 版首尾帧视频工作流 `2008457370875207681`，可以直接运行 [examples/first02/run_workflow_dasiwa_first2last_video.py](examples/first02/run_workflow_dasiwa_first2last_video.py)。
+
+这个脚本默认同样支持你给出的最小请求，也就是空 `nodeInfoList` 直接提交：
+
+```python
+task = client.run(
+    workflow_id="2008457370875207681",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/first02/run_workflow_dasiwa_first2last_video.py
+```
+
+这个工作流的真实远端节点里：
+
+- 首帧图片是 `LoadImage` 节点 `110`
+- 尾帧图片是 `LoadImage` 节点 `111`
+- 手动提示词文本是 `CR Text` 节点 `131`
+- `ImpactSwitch` 节点 `130` 默认走 LLM 自动生成提示词；如果你设置 `RUNNINGHUB_FIRST02_PROMPT`，脚本会自动把它切到手动提示词
+- 负面提示词是节点 `67`
+- 时长秒数是节点 `101`
+- 两段采样种子是节点 `79` 和 `80`
+
+例如：
+
+```bash
+export RUNNINGHUB_FIRST02_FIRST_FRAME_PATH="./examples/img/ComfyUI_00001_lemgi_1778400809.png"
+export RUNNINGHUB_FIRST02_LAST_FRAME_PATH="./examples/img/ComfyUI_00002_rfcrc_1778400809.png"
+export RUNNINGHUB_FIRST02_PROMPT="anime warrior transforms with intense purple energy, cinematic mid shot, dynamic smoke and lightning"
+export RUNNINGHUB_FIRST02_NEGATIVE_PROMPT="blurry, low quality, static pose, extra limbs, distorted hands"
+export RUNNINGHUB_FIRST02_DURATION_SECONDS="5"
+export RUNNINGHUB_FIRST02_SEED="12345"
+python examples/first02/run_workflow_dasiwa_first2last_video.py
+```
+
+## 最受欢迎美学文生图案例
+
+如果你要调用文生图工作流 `2037071836214730753`，可以参考 [examples/run_workflow_popular_aesthetics_text_to_image.py](examples/run_workflow_popular_aesthetics_text_to_image.py)。
+
+这个脚本默认直接复刻你给的请求体，底层仍然走 SDK 的任务流接口：
+
+```python
+task = client.run(
+    workflow_id="2037071836214730753",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+脚本另外支持几项已经对齐过节点 ID 的可选覆盖参数：
+
+- `RUNNINGHUB_POPULAR_AESTHETICS_PROMPT`：正向提示词，默认回填到节点 `57/text`
+- `RUNNINGHUB_POPULAR_AESTHETICS_NEGATIVE_PROMPT`：负向提示词，默认回填到节点 `43/text`
+- `RUNNINGHUB_POPULAR_AESTHETICS_SEED`、`RUNNINGHUB_POPULAR_AESTHETICS_STEPS`、`RUNNINGHUB_POPULAR_AESTHETICS_CFG`
+- `RUNNINGHUB_POPULAR_AESTHETICS_SAMPLER_NAME`、`RUNNINGHUB_POPULAR_AESTHETICS_SCHEDULER`
+- `RUNNINGHUB_POPULAR_AESTHETICS_WIDTH`、`RUNNINGHUB_POPULAR_AESTHETICS_HEIGHT`、`RUNNINGHUB_POPULAR_AESTHETICS_BATCH_SIZE`
+
+运行方式：
+
+```bash
+python examples/run_workflow_popular_aesthetics_text_to_image.py
+```
+
+如果你只想按工作流默认参数直接跑，不需要额外设置 `nodeInfoList`。
+
+如果你要临时覆盖 prompt 和出图尺寸，可以这样：
+
+```bash
+export RUNNINGHUB_POPULAR_AESTHETICS_PROMPT="JK short skirt, camisole top, cinematic fashion photography, soft light"
+export RUNNINGHUB_POPULAR_AESTHETICS_NEGATIVE_PROMPT="blurry, low quality, bad anatomy"
+export RUNNINGHUB_POPULAR_AESTHETICS_WIDTH="1088"
+export RUNNINGHUB_POPULAR_AESTHETICS_HEIGHT="1920"
+python examples/run_workflow_popular_aesthetics_text_to_image.py
+```
+
+## AI 漫剧角色卡制作案例
+
+如果你要调用角色卡制作工作流 `2051599273845895169`，可以参考 [examples/ai2role/run_workflow_ai2role_character_card.py](examples/ai2role/run_workflow_ai2role_character_card.py)。
+
+这个脚本默认直接复刻你给的请求体，底层仍然走 SDK 的任务流接口：
+
+```python
+task = client.run(
+    workflow_id="2051599273845895169",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+它额外支持几项已经对齐过节点 ID 的可选覆盖参数：
+
+- `RUNNINGHUB_AI2ROLE_CHARACTER_TEXT`：角色描述文本，默认写到节点 `6/text`
+- `RUNNINGHUB_AI2ROLE_REFERENCE_IMAGE_PATH`：可选参考图，会先上传后回填到节点 `9/image`
+- `RUNNINGHUB_AI2ROLE_ASPECT_RATIO`、`RUNNINGHUB_AI2ROLE_RESOLUTION`
+- `RUNNINGHUB_AI2ROLE_SEED`
+
+运行方式：
+
+```bash
+python examples/ai2role/run_workflow_ai2role_character_card.py
+```
+
+如果只想按工作流默认参数直接跑，不需要额外设置 `nodeInfoList`。
+
+如果你要覆盖角色描述和参考图，可以这样：
+
+```bash
+export RUNNINGHUB_AI2ROLE_CHARACTER_TEXT="姓名：霞\n年龄：22 岁\n性别：女\n风格：国漫\n外貌：冷白皮，清冷五官，黑长直，暗黑极简长裙"
+export RUNNINGHUB_AI2ROLE_REFERENCE_IMAGE_PATH="./examples/ai2role/reference.png"
+python examples/ai2role/run_workflow_ai2role_character_card.py
+```
+
+## DeepSeek 设计角色提示词
+
+如果你想先用 DeepSeek 设计角色，并生成可直接用于角色卡工作流的提示词 JSON，可以运行 [examples/ai2role/deepseek_character_prompt.py](examples/ai2role/deepseek_character_prompt.py)。
+
+这个脚本会返回一份结构化角色设计数据，包含：
+
+- `character_card_input`：直接可用于角色卡工作流的角色设定文本
+- `visual_prompt`：角色形象提示词
+- `color_palette_prompt`：配色和光影提示词
+- `negative_prompt`：负向提示词
+
+运行方式：
+
+```bash
+python examples/ai2role/deepseek_character_prompt.py
+```
+
+如果要自定义角色方向：
+
+```bash
+python examples/ai2role/deepseek_character_prompt.py \
+    --idea "设计一位危险又优雅的女刺客角色" \
+    --style "国漫，成熟角色设计，电影级角色海报" \
+    --world "架空古风奇幻"
+```
+
+## DeepSeek 生成后直接驱动角色卡工作流
+
+如果你希望让 DeepSeek 先生成角色设定，再自动提交到角色卡工作流，可以运行 [examples/ai2role/run_ai2role_character_card_from_deepseek_prompt.py](examples/ai2role/run_ai2role_character_card_from_deepseek_prompt.py)。
+
+这条链路会执行三步：
+
+1. 调用 DeepSeek 生成结构化角色设计 JSON
+2. 保存到本地 `outputs/deepseek_ai2role_character_prompt.json`
+3. 读取其中的 `character_card_input`、`visual_prompt`、`color_palette_prompt` 和 `negative_prompt`，组合后通过 SDK 提交到角色卡工作流
+
+运行方式：
+
+```bash
+python examples/ai2role/run_ai2role_character_card_from_deepseek_prompt.py
+```
+
+这条链路同样依赖两类 key：
+
+- `RUNNINGHUB_API_KEY`：RunningHub OpenAPI key，用于提交角色卡工作流
+- `DEEPSEEK_API_KEY`：DeepSeek key，用于生成角色设计 JSON
+
+## DeepSeek 分镜制作案例
+
+如果你想先用 DeepSeek 生成分镜提示词，再直接驱动一键漫剧分镜流工作流 `2013908081847046145`，可以使用 [examples/fenjing/run_fenjing_from_deepseek_prompt.py](examples/fenjing/run_fenjing_from_deepseek_prompt.py)。
+
+这个案例会优先读取 `examples/fenjing/.env`，然后执行三步：
+
+1. 调用 DeepSeek 生成结构化分镜 JSON
+2. 把提示词 JSON 保存到 `examples/fenjing/outputs/`
+3. 提交分镜工作流，并把生成图片下载到 `examples/fenjing/downloads/`
+
+其中单独的 DeepSeek 生成脚本是 [examples/fenjing/deepseek_storyboard_prompt.py](examples/fenjing/deepseek_storyboard_prompt.py)。
+
+运行方式：
+
+```bash
+python examples/fenjing/run_fenjing_from_deepseek_prompt.py
+```
+
+如果你只想先看 DeepSeek 生成的分镜提示词 JSON，可以运行：
+
+```bash
+python examples/fenjing/deepseek_storyboard_prompt.py
+```
+
+这个案例默认会把 DeepSeek 生成的分镜文本回填到工作流里的两个 `CR Prompt Text` 节点：`343` 和 `411`。如果你的工作流副本节点不同，可以通过 `RUNNINGHUB_FENJING_PROMPT_NODE_IDS` 覆盖。
+
 ## 基础使用
 
 ```python
