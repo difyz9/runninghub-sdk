@@ -342,6 +342,50 @@ export RUNNINGHUB_FIRST02_SEED="12345"
 python examples/first02/run_workflow_dasiwa_first2last_video.py
 ```
 
+## Fusion X 首尾帧 360 运镜案例
+
+如果你要调用 Fusion X 首尾帧 360 运镜工作流 `1935147311754321921`，可以直接运行 [examples/demo02/run_workflow_fusionx_first2last_video.py](examples/demo02/run_workflow_fusionx_first2last_video.py)。
+
+这个脚本默认也支持你给出的最小请求，也就是空 `nodeInfoList` 直接提交：
+
+```python
+task = client.run(
+    workflow_id="1935147311754321921",
+    node_info_list=[],
+    add_metadata=True,
+    instance_type="default",
+    use_personal_queue=False,
+)
+outputs = client.wait_for_completion(task.task_id)
+```
+
+运行方式：
+
+```bash
+python examples/demo02/run_workflow_fusionx_first2last_video.py
+```
+
+这个工作流的真实远端节点里：
+
+- 首帧图片是 `LoadImage` 节点 `1`
+- 尾帧图片是 `LoadImage` 节点 `2`
+- 正向提示词是 `WanVideoTextEncodeSingle` 节点 `52/prompt`
+- 负向提示词是 `WanVideoTextEncodeSingle` 节点 `53/prompt`
+- 时长秒数是 `Int` 节点 `58/value`，后续会自动换算成帧数
+- 采样种子是 `WanVideoSampler` 节点 `8/seed`
+
+例如：
+
+```bash
+export RUNNINGHUB_FUSIONX_FIRST_FRAME_PATH="./examples/img/ComfyUI_00001_lemgi_1778400809.png"
+export RUNNINGHUB_FUSIONX_LAST_FRAME_PATH="./examples/img/ComfyUI_00002_rfcrc_1778400809.png"
+export RUNNINGHUB_FUSIONX_PROMPT="smooth 360 degree orbit camera around the character, seamless transition from bright day to sunset, cinematic motion"
+export RUNNINGHUB_FUSIONX_NEGATIVE_PROMPT="blurry, low quality, static frame, warped anatomy, extra limbs"
+export RUNNINGHUB_FUSIONX_DURATION_SECONDS="5"
+export RUNNINGHUB_FUSIONX_SEED="12345"
+python examples/demo02/run_workflow_fusionx_first2last_video.py
+```
+
 ## 最受欢迎美学文生图案例
 
 如果你要调用文生图工作流 `2037071836214730753`，可以参考 [examples/run_workflow_popular_aesthetics_text_to_image.py](examples/run_workflow_popular_aesthetics_text_to_image.py)。
