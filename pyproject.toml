@@ -51,6 +51,7 @@ runninghub_sdk = ["py.typed"]
 
 [tool.setuptools_scm]
 tag_regex = "^v(?P<version>.*)$"
+local_scheme = "no-local-version"
 
 
 
