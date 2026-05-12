@@ -952,27 +952,7 @@ class RunningHubClient:
 
             if status == TaskStatus.SUCCESS:
                 return await self.async_get_outputs(task_id)
-
-            if status == TaskStatus.FAILED:
-                try:
-                    outputs = await self.async_get_outputs(task_id)
-                except TaskError:
-                    raise
-                raise TaskError(
-                    code=ErrorCode.TASK_STATUS_ERROR,
-                    message="任务执行失败",
-                    task_id=task_id,
-                )
-
-            elapsed = time.time() - start_time
-            if elapsed >= timeout:
-                raise TimeoutError(
-                    message=f"等待任务完成超时（{timeout}秒）",
-                    task_id=task_id,
-                    timeout=timeout,
-                )
-
-            await async_sleep(poll_interval)
+        return []
 
     async def async_wait_for_query_v2_completion(
         self,
