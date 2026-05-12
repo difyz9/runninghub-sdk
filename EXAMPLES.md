@@ -1018,6 +1018,11 @@ from runninghub_sdk import RunningHubClient
 
 client = RunningHubClient(api_key="your-api-key")
 
+if not client.validate_api_key():
+    print("API Key 无效")
+    client.close()
+    raise SystemExit(1)
+
 account = client.get_account_status()
 print(account.remain_coins, account.current_task_counts, account.api_type)
 

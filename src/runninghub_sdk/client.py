@@ -320,6 +320,19 @@ class RunningHubClient:
         response = self._get("/openapi/v2/queue/status", {})
         return QueueStatus.from_dict(response)
 
+    def validate_api_key(self) -> bool:
+        """通过 `/openapi/v2/queue/status` 验证当前 API Key 是否有效。"""
+        try:
+            self.get_queue_status()
+            return True
+        except RunningHubError as exc:
+            if exc.code in (
+                ErrorCode.API_KEY_INVALID,
+                ErrorCode.API_KEY_USER_NOT_FOUND,
+            ):
+                return False
+            raise
+
     def get_webhook_detail(self, task_id: str) -> WebhookDetail:
         """根据 task_id 获取 webhook 事件详情"""
         response = self._post("/task/openapi/getWebhookDetail", {"taskId": task_id})
@@ -846,6 +859,19 @@ class RunningHubClient:
         """异步查询当前 API Key 的队列状态"""
         response = await self._async_get("/openapi/v2/queue/status", {})
         return QueueStatus.from_dict(response)
+
+    async def async_validate_api_key(self) -> bool:
+        """异步通过 `/openapi/v2/queue/status` 验证当前 API Key 是否有效。"""
+        try:
+            await self.async_get_queue_status()
+            return True
+        except RunningHubError as exc:
+            if exc.code in (
+                ErrorCode.API_KEY_INVALID,
+                ErrorCode.API_KEY_USER_NOT_FOUND,
+            ):
+                return False
+            raise
 
     async def async_get_webhook_detail(self, task_id: str) -> WebhookDetail:
         """异步根据 task_id 获取 webhook 事件详情"""

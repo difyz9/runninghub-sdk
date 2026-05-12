@@ -91,6 +91,7 @@ asyncio.run(main())
 | `get_account_status()` | `async_get_account_status()` | 获取账户信息，包括余额、当前任务数、API 类型 |
 | `list_api_keys()` | `async_list_api_keys()` | 查询 API Key 列表 |
 | `get_queue_status()` | `async_get_queue_status()` | 查询当前 API Key 的队列状态 |
+| `validate_api_key()` | `async_validate_api_key()` | 通过队列状态接口验证当前 API Key 是否有效 |
 | `get_webhook_detail()` | `async_get_webhook_detail()` | 根据任务 ID 查询 webhook 事件详情 |
 | `retry_webhook()` | `async_retry_webhook()` | 重新发送指定 webhook 事件 |
 
@@ -310,6 +311,10 @@ print(price.estimated_price, price.currency)
 from runninghub_sdk import RunningHubClient
 
 with RunningHubClient(api_key="your-api-key") as client:
+    if not client.validate_api_key():
+        print("API Key 无效")
+        raise SystemExit(1)
+
     account = client.get_account_status()
     print(account.remain_coins, account.current_task_counts, account.api_type)
 

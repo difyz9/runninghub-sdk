@@ -7,6 +7,7 @@ class ErrorCode:
     """API错误码"""
     SUCCESS = 0
     TASK_IS_RUNNING = 804
+    API_KEY_USER_NOT_FOUND = 806
     TASK_STATUS_ERROR = 805
     TASK_NOT_FOUND = 807
     FILE_SIZE_EXCEEDED = 809
@@ -19,6 +20,7 @@ class ErrorCode:
 ERROR_MESSAGES = {
     ErrorCode.SUCCESS: "成功",
     ErrorCode.TASK_IS_RUNNING: "任务正在运行中",
+    ErrorCode.API_KEY_USER_NOT_FOUND: "API Key对应用户不存在",
     ErrorCode.TASK_STATUS_ERROR: "任务状态错误",
     ErrorCode.TASK_NOT_FOUND: "任务不存在",
     ErrorCode.FILE_SIZE_EXCEEDED: "文件大小超出限制(30MB)",
