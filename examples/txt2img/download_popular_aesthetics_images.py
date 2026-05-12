@@ -14,19 +14,30 @@ from urllib.parse import urlparse
 import httpx
 
 
+# IMAGE_URLS = [
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00001_jdtov_1778449972.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00002_xfcxo_1778449972.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00003_mtcls_1778449972.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00004_evlje_1778449973.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00005_ttylx_1778449973.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00006_tpglk_1778449973.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00007_huzoi_1778450034.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00008_vpgpo_1778450034.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00009_mvczo_1778450034.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00010_oiaji_1778450035.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00011_kueoa_1778450035.png",
+#     "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00012_ioghz_1778450035.png",
+# ]
+
 IMAGE_URLS = [
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00001_jdtov_1778449972.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00002_xfcxo_1778449972.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00003_mtcls_1778449972.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00004_evlje_1778449973.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00005_ttylx_1778449973.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00006_tpglk_1778449973.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00007_huzoi_1778450034.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00008_vpgpo_1778450034.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00009_mvczo_1778450034.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00010_oiaji_1778450035.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00011_kueoa_1778450035.png",
-    "https://rh-images.xiaoyaoyou.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00012_ioghz_1778450035.png",
+
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00001_tppnh_1778575569.png",
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00002_lfjhn_1778575569.png",
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00003_auyle_1778575569.png",
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00004_lslil_1778575570.png",
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00005_jusch_1778575570.png",
+"https://rh-images-1252422369.cos.ap-beijing.myqcloud.com/c91531cbf3337fbe998612da4112ea99/output/ComfyUI_00006_klqhz_1778575570.png",
+
 ]
 
 

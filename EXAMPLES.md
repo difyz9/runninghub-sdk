@@ -66,6 +66,38 @@ PYTHONPATH=src python examples/run_workflow_task.py
 
 脚本会先打印工作流前几个节点，方便你确认节点 ID，再提交任务并持续输出状态变化，最后打印生成结果 URL。
 
+## 参考图一致性分镜案例
+
+如果你要调用工作流 `2011257263360577538`，给一张参考图后生成风格和人物一致的连续分镜，可以直接运行 [examples/run_workflow_reference_storyboard.py](examples/run_workflow_reference_storyboard.py)。
+
+这个脚本默认会回填两个核心节点：
+
+- 节点 `74/image`：参考图，本地文件会先上传再回填到 `LoadImage`
+- 节点 `103/text`：分镜需求文本
+
+运行方式：
+
+```bash
+export RUNNINGHUB_STORYBOARD_REFERENCE_IMAGE_PATH="./examples/img/storyboard_ref.png"
+python examples/run_workflow_reference_storyboard.py
+```
+
+如果你想覆盖默认的分镜描述，可以再加：
+
+```bash
+export RUNNINGHUB_STORYBOARD_REFERENCE_IMAGE_PATH="./examples/img/storyboard_ref.png"
+export RUNNINGHUB_STORYBOARD_PROMPT="这是一组武侠打斗分镜，基于参考图保持人物外观一致，生成 15 张连续剧情镜头，不同景别和运镜，动作衔接自然。"
+python examples/run_workflow_reference_storyboard.py
+```
+
+如果你的工作流副本里节点 ID 不同，也可以覆盖：
+
+```bash
+export RUNNINGHUB_STORYBOARD_REFERENCE_IMAGE_NODE_ID="74"
+export RUNNINGHUB_STORYBOARD_PROMPT_NODE_ID="103"
+python examples/run_workflow_reference_storyboard.py
+```
+
 ## 指定 AI App V2 任务案例
 
 如果你要把某条 `curl /openapi/v2/run/ai-app/{id}` 请求直接换成 SDK 调用，可以参考 [examples/run_ai_app_v2_storyboard.py](examples/run_ai_app_v2_storyboard.py)。
