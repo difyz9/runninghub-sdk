@@ -17,6 +17,7 @@ dist/
 .vscode/
 .cursor/
 
+downloads/
 .env
 *.txt
 # OS
