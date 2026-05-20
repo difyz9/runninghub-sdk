@@ -91,6 +91,7 @@ from .exceptions import (
 
 # 工具类导出
 from .models import NodeModifier, modify_nodes
+from .utils import print_task_request_json
 
 # 配置模块导出
 from .config import get_api_key, get_base_url, get_timeout, load_env_file
@@ -151,6 +152,7 @@ __all__ = [
     # 工具类
     "NodeModifier",
     "modify_nodes",
+    "print_task_request_json",
     # 配置
     "get_api_key",
     "get_base_url",

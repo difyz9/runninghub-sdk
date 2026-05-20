@@ -7,6 +7,7 @@ from .helpers import (
     async_sleep,
     retry_with_timeout,
     format_file_size,
+    print_task_request_json,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "async_sleep",
     "retry_with_timeout",
     "format_file_size",
+    "print_task_request_json",
 ]

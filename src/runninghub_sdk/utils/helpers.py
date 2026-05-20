@@ -1,8 +1,9 @@
 """辅助函数模块"""
 
 import hashlib
+import json
 import time
-from typing import Callable, TypeVar, Optional
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -109,3 +110,19 @@ def format_file_size(size_bytes: int) -> str:
             return f"{size_bytes:.2f} {unit}"
         size_bytes /= 1024
     return f"{size_bytes:.2f} TB"
+
+
+def print_task_request_json(
+    payload: Dict[str, Any],
+    endpoint: Optional[str] = None,
+) -> None:
+    """
+    以格式化 JSON 打印任务提交数据，便于调试。
+
+    Args:
+        payload: 提交任务时的请求体
+        endpoint: 可选的接口路径
+    """
+    if endpoint:
+        print(f"endpoint: {endpoint}")
+    print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
