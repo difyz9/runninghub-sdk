@@ -22,6 +22,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+examples/
 
 # Test outputs
 /output/
