@@ -318,28 +318,6 @@ with RunningHubClient(api_key="your-api-key") as client:
 
     account = client.get_account_status()
     print(account.remain_coins, account.current_task_counts, account.api_type)
-
-## 网页接口验证示例
-
-如果你想验证从浏览器网络面板抓到的请求（例如 `/api/output/v2/history`），可以使用示例脚本：
-
-```bash
-export RH_WEB_BEARER_TOKEN="your-web-bearer-token"
-export RH_WEB_COOKIE="your-cookie-string"
-python examples/query_output_history_v2.py
-```
-
-脚本会输出：
-- 请求摘要（敏感头会被打码）
-- HTTP 状态码
-- 响应 JSON（或原始文本）
-
-也可以覆盖默认筛选参数：
-
-```bash
-python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
-```
-
     keys = client.list_api_keys()
     for key in keys:
         print(key.key, key.status, key.visible)
@@ -347,6 +325,63 @@ python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCES
     queue = client.get_queue_status()
     print(queue.api_key_type, queue.running_count, queue.queued_count)
 ```
+
+
+## 获取与下载历史资产
+
+如果你想验证从浏览器网络面板抓到的请求，例如 `/api/output/v2/history`，可以先用示例脚本把历史资产列表保存到本地 JSON：
+
+```bash
+export RH_WEB_BEARER_TOKEN="your-web-bearer-token"
+
+python examples/query_output_history_v2.py
+```
+
+默认行为：
+- 使用 Bearer Token 调用 `/api/output/v2/history`
+- 将 `response.json.data` 保存为 `examples/query_output_history_v2_result.json`
+- 终端同时打印完整响应摘要，便于调试
+
+如果你需要覆盖默认筛选参数：
+
+```bash
+python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
+```
+
+如果你需要保存完整调试对象，而不仅仅是 `data` 字段：
+
+```bash
+python examples/query_output_history_v2.py --save-full --output history_full.json
+```
+
+拿到历史 JSON 后，可以再批量下载其中的资产文件。下载脚本会遍历每条记录的 `fileUrl`，并把文件保存到同一个目录下，文件名使用 `outputName`：
+
+```bash
+python examples/download_history_outputs.py \
+  --input examples/query_output_history_v2_result.json \
+  --output-dir examples/downloads \
+  --concurrency 8
+```
+
+下载脚本行为说明：
+- 默认输入文件是 `query_output_history_v2_result.json`
+- 默认下载目录是 `downloads`
+- 默认并发数是 `5`
+- 如果文件重名，会自动追加后缀避免覆盖
+- 如果文件已存在，默认跳过；传 `--overwrite` 才会覆盖
+
+常用可选参数：
+
+```bash
+python examples/download_history_outputs.py --retries 2 --timeout 60 --overwrite
+```
+
+建议工作流：
+1. 先运行 `query_output_history_v2.py` 拉取最新历史列表
+2. 检查生成的 JSON 是否包含你要的 `fileUrl/outputName`
+3. 再运行 `download_history_outputs.py` 批量下载资产
+
+
 
 Webhook 调试示例：
 
