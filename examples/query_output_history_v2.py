@@ -189,3 +189,6 @@ if __name__ == "__main__":
 
 
 
+
+# export RH_WEB_BEARER_TOKEN=你的JWT字符串（不要带 Bearer 前缀）
+# PYTHONPATH=../src python query_output_history_v2.py --size 30 --current 1 --status SUCCESS --task-type API,WEBAPP,WORKFLOW,ExclAPI,CORPAPI,FAST_WEBAPP,FAST_WEBAPP_V2,SKU_WEBAPP_API,SKU_WORKFLOW_API --has-output --fast-creation null --from-id "" --task-name "" --timeout 30

@@ -204,3 +204,17 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
+# python examples/download_history_outputs.py \
+#   --input examples/query_output_history_v2_result.json \
+#   --output-dir examples/downloads \
+#   --concurrency 8
+
+
+# 可选参数：
+
+# --retries 2 下载失败重试次数
+# --overwrite 覆盖已存在文件
+# --timeout 60 单请求超时秒数
