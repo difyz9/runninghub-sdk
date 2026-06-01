@@ -23,8 +23,7 @@ downloads/
 # OS
 .DS_Store
 Thumbs.db
-examples/
-
+*_result.json
 # Test outputs
 /output/
 *.png

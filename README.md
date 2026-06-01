@@ -319,6 +319,27 @@ with RunningHubClient(api_key="your-api-key") as client:
     account = client.get_account_status()
     print(account.remain_coins, account.current_task_counts, account.api_type)
 
+## 网页接口验证示例
+
+如果你想验证从浏览器网络面板抓到的请求（例如 `/api/output/v2/history`），可以使用示例脚本：
+
+```bash
+export RH_WEB_BEARER_TOKEN="your-web-bearer-token"
+export RH_WEB_COOKIE="your-cookie-string"
+python examples/query_output_history_v2.py
+```
+
+脚本会输出：
+- 请求摘要（敏感头会被打码）
+- HTTP 状态码
+- 响应 JSON（或原始文本）
+
+也可以覆盖默认筛选参数：
+
+```bash
+python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
+```
+
     keys = client.list_api_keys()
     for key in keys:
         print(key.key, key.status, key.visible)
