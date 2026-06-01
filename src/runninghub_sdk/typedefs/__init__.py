@@ -9,6 +9,8 @@ from .task import (
     V2QueryResult,
     ModelPricePreview,
     TaskFailedReason,
+    TaskUsage,
+    TaskUsageRecord,
     WaitForCompletionOptions,
 )
 from .upload import (
@@ -54,6 +56,8 @@ __all__ = [
     "V2QueryResult",
     "ModelPricePreview",
     "TaskFailedReason",
+    "TaskUsage",
+    "TaskUsageRecord",
     "WaitForCompletionOptions",
     # 上传类型
     "UploadResponseData",

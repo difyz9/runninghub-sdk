@@ -47,6 +47,8 @@ from .typedefs import (
     V2QueryResult,
     ModelPricePreview,
     TaskFailedReason,
+    TaskUsage,
+    TaskUsageRecord,
     WaitForCompletionOptions,
     # 上传类型
     UploadResponseData,
@@ -111,6 +113,8 @@ __all__ = [
     "V2QueryResult",
     "ModelPricePreview",
     "TaskFailedReason",
+    "TaskUsage",
+    "TaskUsageRecord",
     "WaitForCompletionOptions",
     # 上传类型
     "UploadResponseData",

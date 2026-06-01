@@ -145,14 +145,21 @@ class V2QueryResult:
     status: Optional[TaskStatus]
     error_code: str
     error_message: str
-    results: Optional[List[Dict[str, str]]]
+    results: Optional[List[Dict[str, Any]]]
     client_id: str
     prompt_tips: str
+    failed_reason: Optional[TaskFailedReason] = None
+    usage: Optional["TaskUsage"] = None
+    parent_task_id: Optional[str] = None
+    task_usage_list: List["TaskUsageRecord"] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "V2QueryResult":
         """从API响应创建"""
         raw_status = data.get("status", "")
+        usage_data = data.get("usage")
+        task_usage_list_data = data.get("taskUsageList") or []
+
         return cls(
             task_id=data.get("taskId", ""),
             status=TaskStatus(raw_status) if raw_status else None,
@@ -161,6 +168,71 @@ class V2QueryResult:
             results=data.get("results"),
             client_id=data.get("clientId", ""),
             prompt_tips=data.get("promptTips", ""),
+            failed_reason=(
+                TaskFailedReason.from_dict(data["failedReason"])
+                if isinstance(data.get("failedReason"), dict)
+                else None
+            ),
+            usage=(TaskUsage.from_dict(usage_data) if isinstance(usage_data, dict) else None),
+            parent_task_id=data.get("parentTaskId"),
+            task_usage_list=[
+                TaskUsageRecord.from_dict(item)
+                for item in task_usage_list_data
+                if isinstance(item, dict)
+            ],
+        )
+
+
+@dataclass
+class TaskUsage:
+    """任务计费信息"""
+
+    consume_money: Optional[str] = None
+    consume_coins: Optional[str] = None
+    task_cost_time: str = ""
+    third_party_consume_money: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TaskUsage":
+        """从API响应创建"""
+        return cls(
+            consume_money=(
+                str(data["consumeMoney"])
+                if data.get("consumeMoney") is not None
+                else None
+            ),
+            consume_coins=(
+                str(data["consumeCoins"])
+                if data.get("consumeCoins") is not None
+                else None
+            ),
+            task_cost_time=str(data.get("taskCostTime", "")),
+            third_party_consume_money=(
+                str(data["thirdPartyConsumeMoney"])
+                if data.get("thirdPartyConsumeMoney") is not None
+                else None
+            ),
+        )
+
+
+@dataclass
+class TaskUsageRecord:
+    """任务与子任务计费记录"""
+
+    task_id: str
+    parent_task_id: Optional[str]
+    task_status: str
+    usage: Optional[TaskUsage] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TaskUsageRecord":
+        """从API响应创建"""
+        usage_data = data.get("usage")
+        return cls(
+            task_id=data.get("taskId", ""),
+            parent_task_id=data.get("parentTaskId"),
+            task_status=str(data.get("taskStatus", "")),
+            usage=(TaskUsage.from_dict(usage_data) if isinstance(usage_data, dict) else None),
         )
 
 

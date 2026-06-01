@@ -1,1 +1,0 @@
-当前项目通过git actions实现自动发布到pypi

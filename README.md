@@ -486,3 +486,31 @@ with RunningHubClient(api_key="your-api-key") as client:
     print(detail.callback_status, detail.callback_status_enum)
     print(detail.callback_response)
 ```
+
+
+
+
+## 💬 技术交流
+
+欢迎加入 RunningHub Crew 社区，一起探讨 AI 工作流编排、MCP 协议与 agent 开发！
+
+<p align="center">
+  <a href="https://qm.qq.com/q/your-link-here" target="_blank">
+    <table>
+      <tr>
+        <td align="center" width="280">
+          <img src="img/e978_720.jpg" width="200" alt="QQ 群二维码" />
+          <br>
+          <sub><b>扫码加群</b></sub>
+        </td>
+        <td valign="middle">
+          &nbsp;&nbsp;&nbsp;<b>🐧 QQ 交流群：484184109</b>
+          <br><br>
+          &nbsp;&nbsp;&nbsp;📢 问题反馈 · 功能建议 · 经验分享
+          <br>
+          &nbsp;&nbsp;&nbsp;🤖 第一时间获取项目更新动态
+        </td>
+      </tr>
+    </table>
+  </a>
+</p>
