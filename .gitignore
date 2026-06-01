@@ -28,7 +28,6 @@ examples/
 # Test outputs
 /output/
 *.png
-*.jpg
 *.mp4
 *.mp3
 *.wav
