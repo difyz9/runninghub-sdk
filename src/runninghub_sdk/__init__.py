@@ -62,6 +62,7 @@ from .typedefs import (
     QueueStatus,
     WebhookDetail,
     WebhookCallbackStatus,
+    RunningHubToken,
     # AI App 类型
     AiAppRunRequest,
     AiAppRunResponse,
@@ -142,6 +143,7 @@ __all__ = [
     "QueueStatus",
     "WebhookDetail",
     "WebhookCallbackStatus",
+    "RunningHubToken",
     # AI App 类型
     "AiAppRunRequest",
     "AiAppRunResponse",

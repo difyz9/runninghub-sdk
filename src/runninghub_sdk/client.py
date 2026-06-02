@@ -37,6 +37,7 @@ from .typedefs import (
     WebappListResponse,
     OutputHistoryV2Request,
     OutputHistoryV2Response,
+    RunningHubToken,
 )
 from .models import NodeModifier, modify_nodes
 from .utils import calculate_md5, async_sleep, sleep
@@ -73,6 +74,206 @@ class RunningHubClient:
     DEFAULT_TIMEOUT = 60.0
     DEFAULT_POLL_INTERVAL = 2.0
     DEFAULT_WAIT_TIMEOUT = 600.0
+
+    @classmethod
+    def login(
+        cls,
+        username: str,
+        password: str,
+        *,
+        base_url: str = BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+        user_agent: Optional[str] = None,
+    ) -> "RunningHubToken":
+        """
+        使用手机号和密码登录 RunningHub，获取 access token
+
+        登录成功后返回的 access_token 可用作 api_key 初始化客户端。
+
+        Args:
+            username: 手机号
+            password: 明文密码（SDK 会自动进行 MD5 加密）
+            base_url: API 基础 URL（可选）
+            timeout: 请求超时时间（秒）
+            user_agent: 自定义 User-Agent（可选）
+
+        Returns:
+            RunningHubToken: 包含 access_token、refresh_token 等
+
+        示例:
+            token = RunningHubClient.login("138xxxxxxxx", "your_password")
+            client = RunningHubClient(api_key=token.access_token)
+        """
+        import hashlib
+
+        payload = {
+            "mobile": username,
+            "password": hashlib.md5(password.encode("utf-8")).hexdigest(),
+            "channel": None,
+            "inviteCode": None,
+            "serviceAgreement": True,
+        }
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json;charset=UTF-8",
+            "Origin": base_url,
+            "Referer": f"{base_url}/",
+            "User-Language": "zh_CN",
+            "User-Agent": (
+                user_agent
+                or (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+                )
+            ),
+        }
+
+        try:
+            with httpx.Client(base_url=base_url, timeout=timeout) as client:
+                response = client.post("/uc/pwdLogin", json=payload, headers=headers)
+                response.raise_for_status()
+                result = response.json()
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"登录请求失败: HTTP {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"登录网络错误: {str(e)}", e)
+
+        code = result.get("code", 0)
+        if code != 0:
+            raise RunningHubError(
+                code=code,
+                message=result.get("msg") or result.get("message") or "登录失败",
+            )
+
+        data = result.get("data") or {}
+        access_token = data.get("access_token")
+        refresh_token = data.get("refresh_token")
+        if not access_token or not refresh_token:
+            raise RunningHubError(
+                code=code,
+                message="登录成功但缺少 token 字段",
+            )
+
+        return RunningHubToken(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expire_in=int(data.get("expire_in", 0) or 0),
+            identify=data.get("identify"),
+            first_login=data.get("firstLogin"),
+        )
+
+    @classmethod
+    def from_login(
+        cls,
+        username: str,
+        password: str,
+        *,
+        token_cache: Optional[Union[str, Path]] = None,
+        base_url: str = BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+        user_agent: Optional[str] = None,
+    ) -> "RunningHubClient":
+        """
+        使用手机号和密码一键登录，直接返回可用的客户端实例
+
+        流程：登录 → 获取 token →（可选缓存到本地）→ 创建客户端
+
+        Args:
+            username: 手机号
+            password: 明文密码
+            token_cache: 可选，token 缓存文件路径。
+                        指定后登录成功会自动将 token 保存到本地 JSON 文件，
+                        后续可通过 from_token_cache() 快速恢复。
+            base_url: API 基础 URL（可选）
+            timeout: 请求超时时间（秒）
+            user_agent: 自定义 User-Agent（可选）
+
+        Returns:
+            RunningHubClient 实例（已配置好 api_key）
+
+        示例:
+            # 首次使用
+            client = RunningHubClient.from_login(
+                "138xxxxxxxx", "your_password",
+                token_cache="token.json",
+            )
+
+            # 后续使用（直接从缓存恢复）
+            client = RunningHubClient.from_token_cache("token.json")
+        """
+        token = cls.login(
+            username=username,
+            password=password,
+            base_url=base_url,
+            timeout=timeout,
+            user_agent=user_agent,
+        )
+        if token_cache:
+            token.save(token_cache, username=username)
+
+        return cls(api_key=token.access_token, base_url=base_url, timeout=timeout)
+
+    @classmethod
+    def from_token_cache(
+        cls,
+        cache_path: Union[str, Path],
+        *,
+        password: Optional[str] = None,
+        base_url: str = BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> "RunningHubClient":
+        """
+        从本地缓存恢复客户端
+
+        如果 token 未过期，直接使用缓存的 token；
+        如果已过期且提供了密码，自动重新登录并更新缓存；
+        如果已过期且没有密码，抛出 RunningHubError。
+
+        Args:
+            cache_path: 缓存文件路径（由 from_login 的 token_cache 参数生成）
+            password: 密码（可选，token 过期时用于自动重新登录）
+            base_url: API 基础 URL（可选）
+            timeout: 请求超时时间（秒）
+
+        Returns:
+            RunningHubClient 实例
+
+        Raises:
+            FileNotFoundError: 缓存文件不存在
+            RunningHubError: token 过期且未提供密码
+        """
+        from .typedefs import RunningHubToken as Token
+
+        load_path = Path(cache_path)
+        if not load_path.exists():
+            raise FileNotFoundError(f"Token 缓存文件不存在: {load_path}")
+
+        try:
+            token, cached_username = Token.load_with_username(load_path)
+        except Exception as exc:
+            raise ValueError(f"缓存文件格式无效: {exc}") from exc
+
+        if token.is_expired:
+            if not password or not cached_username:
+                raise RunningHubError(
+                    code=ErrorCode.API_KEY_INVALID,
+                    message=(
+                        f"Token 已过期（{load_path}）。"
+                        f"请提供 password 参数自动重新登录，"
+                        f"或重新调用 from_login()。"
+                    ),
+                )
+            # 自动重新登录并更新缓存
+            new_token = cls.login(
+                username=cached_username,
+                password=password,
+                base_url=base_url,
+                timeout=timeout,
+            )
+            new_token.save(load_path, username=cached_username)
+            return cls(api_key=new_token.access_token, base_url=base_url, timeout=timeout)
+
+        return cls(api_key=token.access_token, base_url=base_url, timeout=timeout)
 
     def __init__(
         self,

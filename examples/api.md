@@ -1648,6 +1648,57 @@ pip install runninghub-sdk
 export RUNNINGHUB_API_KEY="your-api-key"
 ```
 
+### 手机号登录获取 Token
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 使用手机号和密码登录
+token = RunningHubClient.login(
+    username="138xxxxxxxx",
+    password="your_password",
+)
+
+print(f"Access Token: {token.access_token}")
+print(f"过期时间戳: {token.expires_at_ms}")
+print(f"Identify: {token.identify}")
+
+# 用得到的 access_token 初始化客户端
+client = RunningHubClient(api_key=token.access_token)
+# 现在可以使用所有 API 功能
+```
+
+### 一键登录（推荐）—— 登录 + 创建客户端 + 自动缓存
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 一步完成：登录 → 保存 token 到本地 → 返回客户端
+client = RunningHubClient.from_login(
+    username="138xxxxxxxx",
+    password="your_password",
+    token_cache="./runninghub_token.json",  # 自动缓存到本地
+)
+
+# 此时已可直接调用所有 API
+templates = client.list_portal_templates()
+```
+
+后续运行直接从缓存恢复，无需重复输入密码：
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 从本地缓存恢复客户端
+client = RunningHubClient.from_token_cache("./runninghub_token.json")
+
+# Token 过期时自动检测，提供 password 即可重新登录
+client = RunningHubClient.from_token_cache(
+    "./runninghub_token.json",
+    password="your_password",  # 过期时自动重新登录并更新缓存
+)
+```
+
 ### 获取 Access Token
 
 ```python
@@ -1834,7 +1885,33 @@ print(f"已跳过: {len(result['skipped'])} 个")
 print(f"失败:   {len(result['failed'])} 个")
 ```
 
-### 异步查询 + 并发下载完整示例
+### 登录 + 自动缓存 + 链式使用完整示例
+
+```python
+from runninghub_sdk import RunningHubClient, OutputHistoryV2Request
+
+# 1. 一键登录，自动缓存 token
+client = RunningHubClient.from_login(
+    username="138xxxxxxxx",
+    password="your_password",
+    token_cache="./token.json",  # ⇒ 自动保存到本地
+)
+
+# 2. 查询历史记录
+history = client.query_output_history_v2(
+    OutputHistoryV2Request(size=10, status=["SUCCESS"], has_output=True)
+)
+
+# 3. 并发下载输出文件
+result = client.download_history_outputs(
+    records=history.records,
+    output_dir="./downloads",
+    concurrency=8,
+)
+print(f"已下载 {len(result['downloaded'])} 个文件")
+```
+
+### 异步登录 + 查询 + 并发下载完整示例
 
 ```python
 import asyncio
@@ -1843,8 +1920,33 @@ from runninghub_sdk import (
     OutputHistoryV2Request,
 )
 
+# 首次：登录并缓存
+client = RunningHubClient.from_login(
+    username="138xxxxxxxx",
+    password="your_password",
+    token_cache="./token.json",
+)
+
 async def main():
-    async with RunningHubClient(api_key="your-api-key") as client:
+    # 后续运行可直接 from_token_cache
+    async with RunningHubClient(api_key=client.api_key) as session:
+        history = await session.async_query_output_history_v2(
+            request=OutputHistoryV2Request(
+                size=50, status=["SUCCESS"],
+                task_type=["WEBAPP", "API"], has_output=True,
+            ),
+        )
+        print(f"查到 {history.total} 条记录")
+
+        result = await session.async_download_history_outputs(
+            records=history.records,
+            output_dir="./downloads",
+            concurrency=10,
+        )
+        print(f"已下载 {len(result['downloaded'])} 个")
+
+asyncio.run(main())
+```
         # 使用用户 token 查询历史
         token = await client.async_get_access_token()
         history = await client.async_query_output_history_v2(
