@@ -3,8 +3,9 @@
 import asyncio
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, Callable, BinaryIO
+from typing import Optional, List, Dict, Any, Union, Callable, BinaryIO, Tuple
 from urllib.parse import urlparse, unquote
 
 import httpx
@@ -29,6 +30,13 @@ from .typedefs import (
     WaitForCompletionOptions,
     UploadResponseData,
     LoraUploadResponse,
+    AccessAuthResponse,
+    PortalTemplateListRequest,
+    PortalTemplateListResponse,
+    WebappListRequest,
+    WebappListResponse,
+    OutputHistoryV2Request,
+    OutputHistoryV2Response,
 )
 from .models import NodeModifier, modify_nodes
 from .utils import calculate_md5, async_sleep, sleep
@@ -424,6 +432,79 @@ class RunningHubClient:
         outputs = self.get_outputs(task_id)
         return self.download_outputs(outputs, output_dir, overwrite=overwrite)
 
+    def download_history_outputs(
+        self,
+        records: List[Dict[str, Any]],
+        output_dir: Union[str, Path],
+        *,
+        concurrency: int = 5,
+        overwrite: bool = False,
+        retries: int = 1,
+    ) -> Dict[str, List[str]]:
+        """
+        并发下载历史记录中的输出文件
+
+        解析历史记录（来自 query_output_history_v2 的 records）中的
+        fileUrl 和 outputName，并发下载到本地目录。
+
+        Args:
+            records: 历史记录列表，每条记录应包含 fileUrl 和 outputName
+            output_dir: 输出目录
+            concurrency: 并发下载数，默认 5
+            overwrite: 是否覆盖已存在的文件，默认 False
+            retries: 下载失败重试次数，默认 1
+
+        Returns:
+            {"downloaded": [文件名列表], "skipped": [已跳过], "failed": [失败]}
+        """
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        tasks = self._extract_download_tasks(records, output_path)
+
+        if not tasks:
+            return {"downloaded": [], "skipped": [], "failed": []}
+
+        downloaded: List[str] = []
+        skipped: List[str] = []
+        failed: List[str] = []
+
+        def _download_one(url: str, filepath: Path) -> Tuple[str, str]:
+            if filepath.exists() and not overwrite:
+                return "skipped", filepath.name
+            for attempt in range(retries + 1):
+                try:
+                    resp = httpx.get(url, follow_redirects=True, timeout=self.timeout)
+                    resp.raise_for_status()
+                    filepath.parent.mkdir(parents=True, exist_ok=True)
+                    filepath.write_bytes(resp.content)
+                    return "downloaded", filepath.name
+                except Exception:
+                    if filepath.exists():
+                        filepath.unlink(missing_ok=True)
+                    if attempt >= retries:
+                        return "failed", filepath.name
+            return "failed", filepath.name
+
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            future_map = {
+                executor.submit(_download_one, url, fp): fp.name
+                for url, fp in tasks
+            }
+            for future in as_completed(future_map):
+                status, name = future.result()
+                if status == "downloaded":
+                    downloaded.append(name)
+                elif status == "skipped":
+                    skipped.append(name)
+                else:
+                    failed.append(name)
+
+        return {
+            "downloaded": downloaded,
+            "skipped": skipped,
+            "failed": failed,
+        }
+
     def query_v2(self, task_id: str) -> V2QueryResult:
         """
         V2查询接口
@@ -731,6 +812,93 @@ class RunningHubClient:
         prompt_str = self.get_workflow_json(workflow_id)
         return json.loads(prompt_str)
 
+    # ==================== 同步 Portal/Webapp 方法 ====================
+
+    def get_access_token(self) -> AccessAuthResponse:
+        """
+        获取用户 access token
+
+        调用 /api/instance/access/auth 接口，通过 API Key 获取
+        一个有时效性的用户访问令牌（JWT 格式），用于访问需要
+        用户级别认证的接口。
+
+        Returns:
+            AccessAuthResponse: 包含 accessKey 和过期时间
+        """
+        response = self._post("/api/instance/access/auth", {})
+        return AccessAuthResponse.from_dict(response)
+
+    def list_webapps(
+        self,
+        request: Optional[WebappListRequest] = None,
+    ) -> WebappListResponse:
+        """
+        获取 Webapp 列表
+
+        Args:
+            request: WebappListRequest 查询参数（可选）
+
+        Returns:
+            WebappListResponse: 分页 Webapp 列表
+        """
+        req = request or WebappListRequest()
+        response = self._post("/api/webapp/list", req.to_dict())
+        return WebappListResponse.from_dict(response)
+
+    def list_portal_templates(
+        self,
+        request: Optional[PortalTemplateListRequest] = None,
+    ) -> PortalTemplateListResponse:
+        """
+        获取门户模板列表
+
+        Args:
+            request: PortalTemplateListRequest 查询参数（可选）
+
+        Returns:
+            PortalTemplateListResponse: 分页模板列表，包含完整的记录信息
+        """
+        req = request or PortalTemplateListRequest()
+        response = self._post("/api/portal/template/list", req.to_dict())
+        return PortalTemplateListResponse.from_dict(response)
+
+    def query_output_history_v2(
+        self,
+        request: Optional[OutputHistoryV2Request] = None,
+        access_token: Optional[str] = None,
+    ) -> OutputHistoryV2Response:
+        """
+        查询输出历史（V2）
+
+        调用 /api/output/v2/history 接口，使用用户级别的 Bearer token
+        查询任务输出历史记录，支持按状态、任务类型、是否包含输出等条件过滤。
+
+        Args:
+            request: OutputHistoryV2Request 查询参数（可选）
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            OutputHistoryV2Response: 分页输出历史记录
+        """
+        req = request or OutputHistoryV2Request()
+        payload = req.to_dict()
+        token = access_token or self.api_key
+
+        try:
+            response = self.sync_client.post(
+                "/api/output/v2/history",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return OutputHistoryV2Response.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
     # ==================== 异步API方法 ====================
 
     async def async_run(
@@ -959,6 +1127,77 @@ class RunningHubClient:
         outputs = await self.async_get_outputs(task_id)
         return await self.async_download_outputs(outputs, output_dir, overwrite=overwrite)
 
+    async def async_download_history_outputs(
+        self,
+        records: List[Dict[str, Any]],
+        output_dir: Union[str, Path],
+        *,
+        concurrency: int = 5,
+        overwrite: bool = False,
+        retries: int = 1,
+    ) -> Dict[str, List[str]]:
+        """
+        异步并发下载历史记录中的输出文件
+
+        Args:
+            records: 历史记录列表，应包含 fileUrl 和 outputName
+            output_dir: 输出目录
+            concurrency: 并发下载数，默认 5
+            overwrite: 是否覆盖已存在的文件，默认 False
+            retries: 下载失败重试次数，默认 1
+
+        Returns:
+            {"downloaded": [文件名列表], "skipped": [已跳过], "failed": [失败]}
+        """
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        tasks = self._extract_download_tasks(records, output_path)
+
+        if not tasks:
+            return {"downloaded": [], "skipped": [], "failed": []}
+
+        semaphore = asyncio.Semaphore(concurrency)
+        downloaded: List[str] = []
+        skipped: List[str] = []
+        failed: List[str] = []
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+
+            async def _download_one(url: str, filepath: Path) -> Tuple[str, str]:
+                if filepath.exists() and not overwrite:
+                    return "skipped", filepath.name
+                async with semaphore:
+                    for attempt in range(retries + 1):
+                        try:
+                            resp = await client.get(url, follow_redirects=True)
+                            resp.raise_for_status()
+                            filepath.parent.mkdir(parents=True, exist_ok=True)
+                            filepath.write_bytes(resp.content)
+                            return "downloaded", filepath.name
+                        except Exception:
+                            if filepath.exists():
+                                filepath.unlink(missing_ok=True)
+                            if attempt >= retries:
+                                return "failed", filepath.name
+                    return "failed", filepath.name
+
+            jobs = [_download_one(url, fp) for url, fp in tasks]
+            results = await asyncio.gather(*jobs)
+
+        for status, name in results:
+            if status == "downloaded":
+                downloaded.append(name)
+            elif status == "skipped":
+                skipped.append(name)
+            else:
+                failed.append(name)
+
+        return {
+            "downloaded": downloaded,
+            "skipped": skipped,
+            "failed": failed,
+        }
+
     async def async_wait_for_completion(
         self,
         task_id: str,
@@ -1027,6 +1266,85 @@ class RunningHubClient:
     async def async_cancel(self, task_id: str) -> None:
         """异步取消任务"""
         await self._async_post("/task/openapi/cancel", {"taskId": task_id})
+
+    # ==================== 异步 Portal/Webapp 方法 ====================
+
+    async def async_get_access_token(self) -> AccessAuthResponse:
+        """
+        异步获取用户 access token
+
+        Returns:
+            AccessAuthResponse: 包含 accessKey 和过期时间
+        """
+        response = await self._async_post("/api/instance/access/auth", {})
+        return AccessAuthResponse.from_dict(response)
+
+    async def async_list_webapps(
+        self,
+        request: Optional[WebappListRequest] = None,
+    ) -> WebappListResponse:
+        """
+        异步获取 Webapp 列表
+
+        Args:
+            request: WebappListRequest 查询参数（可选）
+
+        Returns:
+            WebappListResponse: 分页 Webapp 列表
+        """
+        req = request or WebappListRequest()
+        response = await self._async_post("/api/webapp/list", req.to_dict())
+        return WebappListResponse.from_dict(response)
+
+    async def async_list_portal_templates(
+        self,
+        request: Optional[PortalTemplateListRequest] = None,
+    ) -> PortalTemplateListResponse:
+        """
+        异步获取门户模板列表
+
+        Args:
+            request: PortalTemplateListRequest 查询参数（可选）
+
+        Returns:
+            PortalTemplateListResponse: 分页模板列表
+        """
+        req = request or PortalTemplateListRequest()
+        response = await self._async_post("/api/portal/template/list", req.to_dict())
+        return PortalTemplateListResponse.from_dict(response)
+
+    async def async_query_output_history_v2(
+        self,
+        request: Optional[OutputHistoryV2Request] = None,
+        access_token: Optional[str] = None,
+    ) -> OutputHistoryV2Response:
+        """
+        异步查询输出历史（V2）
+
+        Args:
+            request: OutputHistoryV2Request 查询参数（可选）
+            access_token: 用户 Bearer token（可选）。不传则使用 api_key。
+
+        Returns:
+            OutputHistoryV2Response: 分页输出历史记录
+        """
+        req = request or OutputHistoryV2Request()
+        payload = req.to_dict()
+        token = access_token or self.api_key
+
+        try:
+            response = await self.async_client.post(
+                "/api/output/v2/history",
+                json=payload,
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return OutputHistoryV2Response.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
 
     async def async_upload_file(
         self,
@@ -1151,6 +1469,49 @@ class RunningHubClient:
 
         suffix = f".{output.file_type}" if output.file_type else ""
         return f"output_{index:03d}_node_{output.node_id}{suffix}"
+
+    def _sanitize_filename(self, name: str) -> str:
+        """清理文件名，移除非法字符"""
+        illegal_chars = '<>:"/\\|?*\0'
+        safe = "".join("_" if ch in illegal_chars else ch for ch in name).strip()
+        return safe or "unnamed_file"
+
+    def _filename_from_url(self, url: str) -> str:
+        """从下载 URL 中提取文件名"""
+        parsed = urlparse(url)
+        raw_name = Path(unquote(parsed.path)).name
+        return self._sanitize_filename(raw_name or "unnamed_file")
+
+    def _extract_download_tasks(
+        self,
+        records: List[Dict[str, Any]],
+        output_dir: Path,
+    ) -> List[Tuple[str, Path]]:
+        """从历史记录中提取下载任务列表，并进行文件名去重"""
+        tasks: List[Tuple[str, str]] = []
+        for row in records:
+            file_url = str(row.get("fileUrl") or "").strip()
+            if not file_url:
+                continue
+            output_name = str(row.get("outputName") or "").strip()
+            if not output_name:
+                output_name = self._filename_from_url(file_url)
+            output_name = self._sanitize_filename(output_name)
+            if output_name:
+                tasks.append((file_url, output_name))
+
+        # 文件名去重
+        seen: Dict[str, int] = {}
+        unique_tasks: List[Tuple[str, Path]] = []
+        for url, name in tasks:
+            base = Path(name).stem
+            ext = Path(name).suffix
+            count = seen.get(name, 0)
+            unique_name = name if count == 0 else f"{base}_{count}{ext}"
+            seen[name] = count + 1
+            unique_tasks.append((url, output_dir / unique_name))
+
+        return unique_tasks
 
     def _normalize_price_preview_endpoint(self, endpoint: str) -> str:
         """根据模型接口路径生成价格预估路径"""

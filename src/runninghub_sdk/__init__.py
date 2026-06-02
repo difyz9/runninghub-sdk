@@ -77,6 +77,20 @@ from .typedefs import (
     PublicModelPosterInfo,
     PublicModelOwner,
     PublicModelTag,
+    # Portal/Webapp 类型
+    AccessAuthResponse,
+    PortalTemplateListRequest,
+    PortalTemplateOwner,
+    PortalTemplateCover,
+    PortalTemplateTag,
+    PortalTemplateStatisticsInfo,
+    PortalTemplateRecord,
+    PortalTemplateListResponse,
+    WebappListRequest,
+    WebappListResponse,
+    # Output history 类型
+    OutputHistoryV2Request,
+    OutputHistoryV2Response,
 )
 
 # 异常类导出 (包含 ErrorCode 和 ERROR_MESSAGES)
@@ -143,6 +157,20 @@ __all__ = [
     "PublicModelPosterInfo",
     "PublicModelOwner",
     "PublicModelTag",
+    # Portal/Webapp 类型
+    "AccessAuthResponse",
+    "PortalTemplateListRequest",
+    "PortalTemplateOwner",
+    "PortalTemplateCover",
+    "PortalTemplateTag",
+    "PortalTemplateStatisticsInfo",
+    "PortalTemplateRecord",
+    "PortalTemplateListResponse",
+    "WebappListRequest",
+    "WebappListResponse",
+    # Output history 类型
+    "OutputHistoryV2Request",
+    "OutputHistoryV2Response",
     # 错误类型
     "ErrorCode",
     "ERROR_MESSAGES",

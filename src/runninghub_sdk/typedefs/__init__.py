@@ -43,6 +43,22 @@ from .ai_app import (
     PublicModelOwner,
     PublicModelTag,
 )
+from .portal import (
+    AccessAuthResponse,
+    PortalTemplateListRequest,
+    PortalTemplateOwner,
+    PortalTemplateCover,
+    PortalTemplateTag,
+    PortalTemplateStatisticsInfo,
+    PortalTemplateRecord,
+    PortalTemplateListResponse,
+    WebappListRequest,
+    WebappListResponse,
+)
+from .output_history import (
+    OutputHistoryV2Request,
+    OutputHistoryV2Response,
+)
 
 # ErrorCode 和 ERROR_MESSAGES 在 exceptions.py 中定义，这里不重复导出
 
@@ -86,4 +102,18 @@ __all__ = [
     "PublicModelPosterInfo",
     "PublicModelOwner",
     "PublicModelTag",
+    # Portal/Webapp 类型
+    "AccessAuthResponse",
+    "PortalTemplateListRequest",
+    "PortalTemplateOwner",
+    "PortalTemplateCover",
+    "PortalTemplateTag",
+    "PortalTemplateStatisticsInfo",
+    "PortalTemplateRecord",
+    "PortalTemplateListResponse",
+    "WebappListRequest",
+    "WebappListResponse",
+    # Output history 类型
+    "OutputHistoryV2Request",
+    "OutputHistoryV2Response",
 ]
