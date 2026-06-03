@@ -38,6 +38,10 @@ from .typedefs import (
     OutputHistoryV2Request,
     OutputHistoryV2Response,
     RunningHubToken,
+    UserInfoRequest,
+    UserInfoResponse,
+    UserApiKeyRequest,
+    UserApiKeyResponse,
 )
 from .models import NodeModifier, modify_nodes
 from .utils import calculate_md5, async_sleep, sleep
@@ -1100,6 +1104,80 @@ class RunningHubClient:
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
 
+    def get_user_info(
+        self,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> UserInfoResponse:
+        """
+        获取用户信息
+
+        调用 /uc/getUserInfo 接口，使用用户级别的 Bearer token
+        查询用户详细信息（会员、钱包、套餐等）。
+
+        Args:
+            user_id: 用户 ID（可从 RunningHubToken.identify 获取）
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            UserInfoResponse: 用户详细信息
+        """
+        request = UserInfoRequest(user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = self.sync_client.post(
+                "/uc/getUserInfo",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return UserInfoResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    def get_user_api_key(
+        self,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> UserApiKeyResponse:
+        """
+        获取用户 API Key 信息
+
+        调用 /uc/apiKey/get 接口，使用用户级别的 Bearer token
+        查询共享 API、专属 API、余额等信息。
+
+        Args:
+            user_id: 用户 ID
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            UserApiKeyResponse: API Key 信息
+        """
+        request = UserApiKeyRequest(user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = self.sync_client.post(
+                "/uc/apiKey/get",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return UserApiKeyResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
     # ==================== 异步API方法 ====================
 
     async def async_run(
@@ -1542,6 +1620,72 @@ class RunningHubClient:
             response.raise_for_status()
             result = response.json()
             return OutputHistoryV2Response.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def async_get_user_info(
+        self,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> UserInfoResponse:
+        """
+        异步获取用户信息
+
+        Args:
+            user_id: 用户 ID
+            access_token: 用户 Bearer token（可选）
+
+        Returns:
+            UserInfoResponse: 用户详细信息
+        """
+        request = UserInfoRequest(user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = await self.async_client.post(
+                "/uc/getUserInfo",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return UserInfoResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def async_get_user_api_key(
+        self,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> UserApiKeyResponse:
+        """
+        异步获取用户 API Key 信息
+
+        Args:
+            user_id: 用户 ID
+            access_token: 用户 Bearer token（可选）
+
+        Returns:
+            UserApiKeyResponse: API Key 信息
+        """
+        request = UserApiKeyRequest(user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = await self.async_client.post(
+                "/uc/apiKey/get",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return UserApiKeyResponse.from_dict(self._handle_response(result))
         except httpx.HTTPStatusError as e:
             raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
         except httpx.RequestError as e:

@@ -2,19 +2,33 @@
 
 `runninghub-sdk` 是一个面向 RunningHub ComfyUI OpenAPI 的 Python SDK，支持任务创建、状态轮询、结果查询、文件上传，以及用链式 NodeModifier 修改工作流节点参数。
 
-当前版本也支持 RunningHub AI App 接口，包括获取 AI App 可调用节点示例和直接发起 AI App 任务。
+同时支持 RunningHub AI App 接口、门户模板与应用浏览、用户信息查询、输出历史查询与并发下载等能力。
 
-这个子目录可以直接作为 Python 包发布根目录使用，也可以单独进入目录后执行构建和上传命令发布到 PyPI。
+
+## 认证方式
+
+SDK 支持两种认证方式，使用前请先确认你的场景需要哪一种：
+
+| 方式 | 获取途径 | 适用接口 | 示例 |
+|------|---------|---------|------|
+| **API Key** 🔑 | RunningHub 后台获取 | 任务创建/查询/取消、文件上传、工作流 JSON、AI App 运行、标准模型 API、公共模型列表、账户信息、队列状态、Webhook 调试 | `RunningHubClient(api_key="...")` |
+| **用户 Token** 🪪 | 手机号+密码登录获取 | 门户模板列表、Webapp 列表、用户信息、用户 API Key 信息、输出历史查询、输出文件下载、Access Token 获取 | `RunningHubClient.from_login("138...", "pswd")` |
+
+> **说明**：API Key 是 RunningHub 平台为开发者分配的固定密钥，适合后端集成。用户 Token 是模拟浏览器登录行为获取的临时凭证（有时效性），适合需要操作用户级数据的场景。SDK 统一了这两种方式——从 `login()` 返回的 `access_token` 可以直接作为 `api_key` 传入 `RunningHubClient`。
 
 
 ## 特性
 
+- 🔑 **API Key** 与 🪪 **用户 Token** 双认证，覆盖全部 RunningHub 接口
+- 手机号密码登录，自动缓存 Token，过期自动检测
 - 同时支持同步和异步调用
 - 基于 `httpx`，接口简单，依赖精简
 - 提供完整类型注解，适合 IDE 自动补全
-- 支持 `NodeModifier` 链式修改节点输入
+- 支持 `NodeModifier` 链式修改工作流节点输入
 - 支持图片、视频、音频、LoRA 等文件上传
 - 支持自动轮询等待任务完成
+- 支持输出历史并发下载
+- 提供一站式门户模板与 Webapp 浏览能力
 
 ## 安装
 
@@ -22,19 +36,20 @@
 pip install runninghub-sdk
 ```
 
-如果你是在本仓库中本地开发，也可以进入 `runninghub_sdk` 目录后安装开发依赖：
+如果你是在本仓库中本地开发：
 
 ```bash
-pip install -e .[dev]
+pip install -e .
 ```
 
 ## 快速开始
 
-### 同步调用
+### 方式一：API Key（推荐，适合后端集成）
 
 ```python
 from runninghub_sdk import RunningHubClient, modify_nodes
 
+# 直接用 API Key 初始化
 with RunningHubClient(api_key="your-api-key") as client:
     modifier = (
         modify_nodes()
@@ -50,81 +65,139 @@ with RunningHubClient(api_key="your-api-key") as client:
         print(output.file_url)
 ```
 
+### 方式二：手机号+密码登录（适合操作用户数据）
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 登录 → 自动缓存 token → 返回可用的客户端
+client = RunningHubClient.from_login(
+    "138xxxxxxxx",
+    "your_password",
+    token_cache="./token.json",
+)
+
+# 调用需要用户 token 的接口
+templates = client.list_portal_templates()
+user = client.get_user_info(user_id="your-user-id")
+
+# 也支持所有 API Key 接口（自动复用 access_token）
+task = client.run("workflow-id")
+```
+
 ### 异步调用
 
 ```python
 import asyncio
-
 from runninghub_sdk import RunningHubClient, modify_nodes
-
 
 async def main() -> None:
     async with RunningHubClient(api_key="your-api-key") as client:
         modifier = modify_nodes().text("6", "a beautiful landscape")
         task = await client.async_run_with_modifier("workflow-id", modifier)
         outputs = await client.async_wait_for_completion(task.task_id)
-
         for output in outputs:
             print(output.file_url)
-
 
 asyncio.run(main())
 ```
 
 ## 核心能力
 
-### AI App 接口
+### 认证方式速查
 
-| 同步方法 | 异步方法 | 说明 |
-|---------|---------|------|
-| `get_ai_app_api_demo()` | `async_get_ai_app_api_demo()` | 获取 AI App 调用示例、节点信息、封面和标签 |
-| `run_ai_app()` | `async_run_ai_app()` | 发起 AI App 任务 |
-| `run_ai_app_with_modifier()` | `async_run_ai_app_with_modifier()` | 使用修改器发起 AI App 任务 |
-| `list_public_models()` | `async_list_public_models()` | 获取公共模型列表，支持类型、名称、基础模型、标签分页筛选 |
-| `run_model_api()` | `async_run_model_api()` | 通用标准模型 API 调用，适用于图像、视频、音频、3D 等标准模型端点 |
-| `preview_model_price()` | `async_preview_model_price()` | 按实际请求参数预估标准模型调用价格 |
-| `wait_for_query_v2_completion()` | `async_wait_for_query_v2_completion()` | 基于 `/openapi/v2/query` 轮询标准模型任务完成 |
+| 认证方式 | 适用场景 | 初始化方法 |
+|---------|---------|-----------|
+| 🔑 API Key | 任务、AI App、模型 API、上传、账户队列 | `RunningHubClient(api_key=...)` |
+| 🪪 用户 Token | 门户模板、用户信息、输出历史、登录 | `RunningHubClient.from_login(...)` |
 
-### 账户与调试接口
+### 登录与 Token 管理
 
-| 同步方法 | 异步方法 | 说明 |
-|---------|---------|------|
-| `get_account_status()` | `async_get_account_status()` | 获取账户信息，包括余额、当前任务数、API 类型 |
-| `list_api_keys()` | `async_list_api_keys()` | 查询 API Key 列表 |
-| `get_queue_status()` | `async_get_queue_status()` | 查询当前 API Key 的队列状态 |
-| `validate_api_key()` | `async_validate_api_key()` | 通过队列状态接口验证当前 API Key 是否有效 |
-| `get_webhook_detail()` | `async_get_webhook_detail()` | 根据任务 ID 查询 webhook 事件详情 |
-| `retry_webhook()` | `async_retry_webhook()` | 重新发送指定 webhook 事件 |
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `login()` (classmethod) | — | — | 手机号密码登录，返回 `RunningHubToken` |
+| `from_login()` (classmethod) | — | — | 一键登录 → 缓存 token → 返回客户端 |
+| `from_token_cache()` (classmethod) | — | — | 从本地缓存恢复客户端，过期自动提示 |
+| `get_access_token()` | `async_get_access_token()` | 🪪 | 获取用户级 access token（JWT） |
+
+### 用户信息接口
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `get_user_info()` | `async_get_user_info()` | 🪪 | 获取用户信息（会员、钱包、套餐等） |
+| `get_user_api_key()` | `async_get_user_api_key()` | 🪪 | 获取用户 API Key 详情（共享/专属/普通） |
+
+### 门户应用与模板
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `list_portal_templates()` | `async_list_portal_templates()` | 🪪 | 获取门户模板列表，支持关键词搜索、分页 |
+| `list_webapps()` | `async_list_webapps()` | 🪪 | 获取 Webapp 列表，支持标签过滤 |
+| `get_ai_app_api_demo()` | `async_get_ai_app_api_demo()` | 🔑 | 获取 AI App 调用示例、节点信息、封面和标签 |
+| `run_ai_app()` | `async_run_ai_app()` | 🔑 | 发起 AI App 任务 |
+| `run_ai_app_with_modifier()` | `async_run_ai_app_with_modifier()` | 🔑 | 使用修改器发起 AI App 任务 |
+| `list_public_models()` | `async_list_public_models()` | 🔑 | 获取公共模型列表，支持类型/名称/基础模型/标签筛选 |
 
 ### 任务接口
 
-| 同步方法 | 异步方法 | 说明 |
-|---------|---------|------|
-| `run()` | `async_run()` | 发起任务 |
-| `run_with_modifier()` | `async_run_with_modifier()` | 使用修改器发起任务 |
-| `get_status()` | `async_get_status()` | 查询任务状态 |
-| `get_outputs()` | `async_get_outputs()` | 查询任务输出 |
-| `wait_for_completion()` | `async_wait_for_completion()` | 轮询直到任务完成 |
-| `query_v2()` | `async_query_v2()` | 调用 V2 查询接口 |
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `run()` | `async_run()` | 🔑 | 发起 ComfyUI 任务 |
+| `run_with_modifier()` | `async_run_with_modifier()` | 🔑 | 使用 NodeModifier 发起任务 |
+| `get_status()` | `async_get_status()` | 🔑 | 查询任务状态 |
+| `get_outputs()` | `async_get_outputs()` | 🔑 | 查询任务输出 |
+| `cancel()` | `async_cancel()` | 🔑 | 取消任务 |
+| `wait_for_completion()` | `async_wait_for_completion()` | 🔑 | 轮询直到任务完成 |
+| `query_v2()` | `async_query_v2()` | 🔑 | V2 查询接口 |
+
+### 标准模型 API
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `run_model_api()` | `async_run_model_api()` | 🔑 | 通用标准模型 API 调用（图像/视频/音频/3D） |
+| `preview_model_price()` | `async_preview_model_price()` | 🔑 | 预估标准模型调用价格 |
+| `wait_for_query_v2_completion()` | `async_wait_for_query_v2_completion()` | 🔑 | 基于 V2 查询轮询模型任务完成 |
+
+### 输出历史与文件下载
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `query_output_history_v2()` | `async_query_output_history_v2()` | 🪪 | 查询任务输出历史（支持状态/类型/时间过滤） |
+| `download_history_outputs()` | `async_download_history_outputs()` | — | 并发下载历史记录中的输出文件（默认 5 并发） |
+| `download_file()` | `async_download_file()` | — | 下载单个文件到本地 |
+| `download_outputs()` | `async_download_outputs()` | 🔑 | 下载任务输出列表 |
+| `download_task_outputs()` | `async_download_task_outputs()` | 🔑 | 根据 task_id 查询并下载全部输出 |
 
 ### 文件上传
 
-| 同步方法 | 异步方法 | 说明 |
-|---------|---------|------|
-| `upload_file()` | `async_upload_file()` | 上传通用文件 |
-| `upload_image()` | `async_upload_image()` | 上传图片 |
-| `upload_lora()` | `async_upload_lora()` | 上传 LoRA |
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `upload_file()` | `async_upload_file()` | 🔑 | 上传通用文件（图片/视频/音频） |
+| `upload_image()` | `async_upload_image()` | 🔑 | 上传图片 |
+| `upload_lora()` | `async_upload_lora()` | 🔑 | 上传 LoRA 模型 |
 
-### 工作流读取
+### 工作流与调试
 
-| 同步方法 | 异步方法 | 说明 |
-|---------|---------|------|
-| `get_workflow_json()` | `async_get_workflow_json()` | 获取工作流 JSON 字符串 |
-| `get_workflow_json_parsed()` | `async_get_workflow_json_parsed()` | 获取解析后的工作流对象 |
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `get_workflow_json()` | `async_get_workflow_json()` | 🔑 | 获取工作流 JSON 字符串 |
+| `get_workflow_json_parsed()` | `async_get_workflow_json_parsed()` | 🔑 | 获取解析后的工作流对象 |
+| `create_modifier()` | — | — | 创建 NodeModifier 实例 |
+
+### 账户与队列
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `get_account_status()` | `async_get_account_status()` | 🔑 | 获取账户信息（余额、任务数、API 类型） |
+| `list_api_keys()` | `async_list_api_keys()` | 🔑 | 查询 API Key 列表 |
+| `get_queue_status()` | `async_get_queue_status()` | 🔑 | 查询当前队列状态 |
+| `validate_api_key()` | `async_validate_api_key()` | 🔑 | 验证 API Key 是否有效 |
+| `get_webhook_detail()` | `async_get_webhook_detail()` | 🔑 | 查询 webhook 事件详情 |
+| `retry_webhook()` | `async_retry_webhook()` | 🔑 | 重新发送 webhook 事件 |
 
 ## NodeModifier
 
-`NodeModifier` 用于用链式 API 构造 `node_info_list`，让工作流参数修改更直观。
+`NodeModifier` 用于用链式 API 构造 `node_info_list`，让工作流参数修改更直观（需 **API Key** 认证）。
 
 ```python
 from runninghub_sdk import modify_nodes
@@ -165,7 +238,7 @@ modifier = (
 
 ## AI App 使用
 
-AI App 接口适合直接调用 RunningHub 页面上的应用。`webappId` 可以从 AI App 详情页链接中获取，例如 `https://www.runninghub.cn/ai-detail/1937084629516193794` 最后的数字就是 `webappId`。
+AI App 接口通过 **API Key** 认证，适合直接调用 RunningHub 页面上的应用。`webappId` 可以从 AI App 详情页链接中获取，例如 `https://www.runninghub.cn/ai-detail/1937084629516193794` 最后的数字就是 `webappId`。
 
 推荐先读取 AI App 的可调用示例，再按节点修改参数并运行：
 
@@ -306,6 +379,55 @@ price = client.preview_model_price(
 print(price.estimated_price, price.currency)
 ```
 
+## 用户信息查询（需用户 Token）
+
+需要先通过 `from_login()` 或 `login()` 获取用户级 Token：
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 从登录 token 缓存恢复
+client = RunningHubClient.from_token_cache("./token.json")
+
+# 查询用户信息 — identify 就是 userId
+user = client.get_user_info(user_id="2013415890368073729")
+print(f"昵称: {user.nick_name}")
+print(f"手机: {user.mobile}")
+print(f"会员: {user.member_info.member_name}（到期: {user.member_info.member_expired_time}）")
+print(f"RH币: {user.total_coin}")
+print(f"钱包余额: {user.wallet_info.balance} 元")
+print(f"API Key: {user.api_key}")
+
+# 查询 API Key 详情
+api_key_info = client.get_user_api_key(user_id=user.id)
+print(f"共享 API: {api_key_info.shared_api.api_key}（并发: {api_key_info.shared_api.concurrent_limit}）")
+print(f"普通 API: {api_key_info.normal_api_key}")
+print(f"月消费: {api_key_info.monthly_cost} 元")
+```
+
+## 门户模板与 Webapp 浏览（需用户 Token）
+
+浏览 RunningHub 市场中的模板和应用，支持关键词搜索和分页：
+
+```python
+from runninghub_sdk import RunningHubClient, PortalTemplateListRequest, WebappListRequest
+
+client = RunningHubClient.from_login("138xxxxxxxx", "your_password")
+
+# 搜索模板
+templates = client.list_portal_templates(
+    PortalTemplateListRequest(search="LTX", size=10, current=1)
+)
+print(f"模板总数: {templates.total}")
+for record in templates.records:
+    print(f"  - {record.name}（作者: {record.owner.name}，使用: {record.statistics_info.use_count} 次）")
+
+# 浏览 Webapp
+webapps = client.list_webapps(WebappListRequest(size=10, sort="RECOMMEND"))
+for app in webapps.records:
+    print(f"  - {app.get('name', 'N/A')}")
+```
+
 ## 账户、队列与 webhook 调试
 
 ```python
@@ -327,72 +449,66 @@ with RunningHubClient(api_key="your-api-key") as client:
 ```
 
 
-## 获取与下载历史资产
+## 输出历史查询与并发下载
 
-如果你想验证从浏览器网络面板抓到的请求，例如 `/api/output/v2/history`，可以先用示例脚本把历史资产列表保存到本地 JSON：
-
-```bash
-export RH_WEB_BEARER_TOKEN="your-web-bearer-token"
-
-python examples/query_output_history_v2.py
-```
-
-默认行为：
-- 使用 Bearer Token 调用 `/api/output/v2/history`
-- 将 `response.json.data` 保存为 `examples/query_output_history_v2_result.json`
-- 终端同时打印完整响应摘要，便于调试
-
-如果你需要覆盖默认筛选参数：
-
-```bash
-python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
-```
-
-如果你需要保存完整调试对象，而不仅仅是 `data` 字段：
-
-```bash
-python examples/query_output_history_v2.py --save-full --output history_full.json
-```
-
-拿到历史 JSON 后，可以再批量下载其中的资产文件。下载脚本会遍历每条记录的 `fileUrl`，并把文件保存到同一个目录下，文件名使用 `outputName`：
-
-```bash
-python examples/download_history_outputs.py \
-  --input examples/query_output_history_v2_result.json \
-  --output-dir examples/downloads \
-  --concurrency 8
-```
-
-下载脚本行为说明：
-- 默认输入文件是 `query_output_history_v2_result.json`
-- 默认下载目录是 `downloads`
-- 默认并发数是 `5`
-- 如果文件重名，会自动追加后缀避免覆盖
-- 如果文件已存在，默认跳过；传 `--overwrite` 才会覆盖
-
-常用可选参数：
-
-```bash
-python examples/download_history_outputs.py --retries 2 --timeout 60 --overwrite
-```
-
-建议工作流：
-1. 先运行 `query_output_history_v2.py` 拉取最新历史列表
-2. 检查生成的 JSON 是否包含你要的 `fileUrl/outputName`
-3. 再运行 `download_history_outputs.py` 批量下载资产
-
-
-
-Webhook 调试示例：
+查询历史任务输出并批量下载，需要用户 Token 认证（`from_login` 或传入 `access_token`）。
 
 ```python
-from runninghub_sdk import RunningHubClient
+from runninghub_sdk import RunningHubClient, OutputHistoryV2Request
 
-with RunningHubClient(api_key="your-api-key") as client:
-    detail = client.get_webhook_detail("1904154698679771137")
-    print(detail.id, detail.callback_status, detail.retry_count)
+client = RunningHubClient.from_login(
+    "138xxxxxxxx", "your_password",
+    token_cache="./token.json",
+)
 
-    client.retry_webhook(detail.id, detail.webhook_url)
+# 查询历史记录（支持按状态、任务类型过滤）
+history = client.query_output_history_v2(
+    OutputHistoryV2Request(
+        size=20,
+        status=["SUCCESS"],
+        task_type=["WEBAPP", "API"],
+        has_output=True,
+    )
+)
+print(f"查到 {history.total} 条记录")
+
+# 并发下载所有输出文件（默认 5 并发）
+result = client.download_history_outputs(
+    records=history.records,
+    output_dir="./downloads",
+    concurrency=8,
+)
+print(f"已下载: {len(result['downloaded'])}")
+print(f"已跳过: {len(result['skipped'])}")
+print(f"失败:   {len(result['failed'])}")
+```
+
+### 异步版本
+
+```python
+import asyncio
+from runninghub_sdk import RunningHubClient, OutputHistoryV2Request
+
+token = RunningHubClient.login("138xxxxxxxx", "your_password")
+
+async def main():
+    async with RunningHubClient(api_key=token.access_token) as client:
+        history = await client.async_query_output_history_v2(
+            request=OutputHistoryV2Request(
+                size=50, status=["SUCCESS"],
+                task_type=["WEBAPP", "API"], has_output=True,
+            ),
+            access_token=token.access_token,
+        )
+
+        result = await client.async_download_history_outputs(
+            records=history.records,
+            output_dir="./downloads",
+            concurrency=10,
+        )
+        print(f"已下载 {len(result['downloaded'])} 个")
+
+asyncio.run(main())
 ```
 
 ## 错误处理
@@ -413,25 +529,49 @@ except RunningHubError as error:
 
 ## 类型定义
 
-SDK 暴露了常用类型，便于静态检查和 IDE 补全：
+SDK 暴露了全部 API 的请求/响应类型，便于静态检查和 IDE 补全：
 
 ```python
 from runninghub_sdk import (
-    CreateTaskResponse,
-    NodeInput,
-    TaskOutput,
-    TaskStatus,
-    UploadResponseData,
+    # 任务
+    CreateTaskResponse, TaskOutput, TaskStatus,
+    NodeInput, ModelPricePreview, V2QueryResult,
+    # 上传
+    UploadResponseData, LoraUploadResponse,
+    # 账户
+    AccountStatus, ApiKeyInfo, QueueStatus, WebhookDetail,
+    # 认证（用户 Token）
+    RunningHubToken, AccessAuthResponse,
+    UserInfoRequest, UserInfoResponse,
+    MemberInfo, WalletInfo, ProductPackage,
+    UserApiKeyRequest, UserApiKeyResponse,
+    SharedApiInfo, ExclusiveApiInfo, BalanceInfo,
+    # 门户
+    PortalTemplateListRequest, PortalTemplateListResponse,
+    PortalTemplateRecord, PortalTemplateOwner,
+    WebappListRequest, WebappListResponse,
+    # 输出历史
+    OutputHistoryV2Request, OutputHistoryV2Response,
+    # AI App
+    AiAppRunRequest, AiAppApiCallDemo,
+    PublicModelListRequest, PublicModelListResponse,
 )
 ```
 
 ## 更多示例
 
-更多可运行示例见 [EXAMPLES.md](EXAMPLES.md)。
+更多可运行示例见 [examples/api.md](examples/api.md)，包含：
+
+- 手机号密码登录 & 自动缓存 Token
+- 从缓存恢复客户端 & 自动续期
+- 获取用户信息 & API Key 详情
+- 门户模板搜索 & Webapp 浏览
+- 输出历史查询 & 并发下载
+- 异步完整工作流
 
 ## 详细使用案例
 
-下面给出几类更贴近实际业务的调用方式。完整脚本可继续参考 [EXAMPLES.md](EXAMPLES.md)。
+下面给出几类更贴近实际业务的调用方式。完整脚本可继续参考 [examples/api.md](examples/api.md)。
 
 ### 案例 1：先读取工作流结构，再按节点动态改参
 

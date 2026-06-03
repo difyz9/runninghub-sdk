@@ -1699,6 +1699,67 @@ client = RunningHubClient.from_token_cache(
 )
 ```
 
+### 获取用户信息（需登录后的 token）
+
+```python
+from runninghub_sdk import RunningHubClient
+
+# 方式一：从登录 token 缓存恢复后直接查询
+client = RunningHubClient.from_token_cache("./runninghub_token.json")
+
+# 用户 ID 可从缓存的 identify 字段获取
+user = client.get_user_info(user_id="2013415890368073729")
+print(f"昵称: {user.nick_name}")
+print(f"手机: {user.mobile}")
+print(f"会员: {user.member_info.member_name}")
+print(f"到期: {user.member_info.member_expired_time}")
+print(f"总RH币: {user.total_coin}")
+print(f"钱包: {user.wallet_info.balance} {user.wallet_info.currency}")
+print(f"API Key: {user.api_key}")
+
+# 方式二：用 access_token 查询
+token = RunningHubClient.login("138xxxxxxxx", "your_password")
+user = client.get_user_info(
+    user_id=token.identify,    # identify 即 userId
+    access_token=token.access_token,
+)
+
+# 获取用户的 API Key 详情
+api_key_info = client.get_user_api_key(
+    user_id=user.id,
+    access_token=token.access_token,
+)
+print(f"共享 API: {api_key_info.shared_api.api_key}")
+print(f"普通 API: {api_key_info.normal_api_key}")
+print(f"月消费: {api_key_info.monthly_cost}")
+print(f"余额: {api_key_info.balance_info.balance}")
+```
+
+### 异步获取用户信息
+
+```python
+import asyncio
+from runninghub_sdk import RunningHubClient
+
+token = RunningHubClient.login("138xxxxxxxx", "your_password")
+
+async def main():
+    async with RunningHubClient(api_key=token.access_token) as client:
+        user = await client.async_get_user_info(
+            user_id=token.identify,
+            access_token=token.access_token,
+        )
+        print(f"昵称: {user.nick_name}, 会员: {user.member_info.member_name}")
+
+        api_key_info = await client.async_get_user_api_key(
+            user_id=user.id,
+            access_token=token.access_token,
+        )
+        print(f"普通 API Key: {api_key_info.normal_api_key}")
+
+asyncio.run(main())
+```
+
 ### 获取 Access Token
 
 ```python

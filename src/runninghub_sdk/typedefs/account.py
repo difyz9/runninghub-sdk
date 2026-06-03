@@ -5,7 +5,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 class ApiType(str, Enum):
@@ -334,3 +334,368 @@ class RunningHubToken:
             "identify": self.identify,
             "first_login": self.first_login,
         }
+
+
+# ==================== 用户信息 /uc/getUserInfo ====================
+
+
+@dataclass
+class UserInfoRequest:
+    """获取用户信息请求参数"""
+
+    user_id: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 API 请求格式"""
+        return {"userId": self.user_id}
+
+
+@dataclass
+class MemberInfo:
+    """会员信息"""
+
+    user_type: str = ""
+    member_code: str = ""
+    member_name: str = ""
+    member_expired_time: str = ""
+    member_remaining_days: str = ""
+    member_remaining_months: str = ""
+    lowest_price: Optional[str] = None
+    currency: Optional[str] = None
+    pay_channel: str = ""
+    member_unit: str = ""
+    buy_type: int = 0
+    watermark_settings_is_popup: bool = False
+    expired: bool = False
+    popup: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "MemberInfo":
+        if data is None:
+            data = {}
+        return cls(
+            user_type=str(data.get("userType", "")),
+            member_code=data.get("memberCode", ""),
+            member_name=data.get("memberName", ""),
+            member_expired_time=data.get("memberExpiredTime", ""),
+            member_remaining_days=str(data.get("memberRemainingDays", "")),
+            member_remaining_months=str(data.get("memberRemainingMonths", "")),
+            lowest_price=str(data["lowestPrice"]) if data.get("lowestPrice") is not None else None,
+            currency=data.get("currency"),
+            pay_channel=data.get("payChannel", ""),
+            member_unit=data.get("memberUnit", ""),
+            buy_type=int(data.get("buyType", 0) or 0),
+            watermark_settings_is_popup=bool(data.get("watermarkSettingsIsPopup", False)),
+            expired=bool(data.get("expired", False)),
+            popup=bool(data.get("popup", False)),
+        )
+
+
+@dataclass
+class WalletInfo:
+    """钱包信息"""
+
+    currency_symbol: str = ""
+    currency: str = ""
+    balance: float = 0.0
+    has_recharged: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "WalletInfo":
+        if data is None:
+            data = {}
+        return cls(
+            currency_symbol=data.get("currencySymbol", ""),
+            currency=data.get("currency", ""),
+            balance=float(data.get("balance", 0) or 0),
+            has_recharged=bool(data.get("hasRecharged", False)),
+        )
+
+
+@dataclass
+class UserConfig:
+    """用户配置"""
+
+    sku_standard_model_task_count_max: int = 100
+    user_preference_package_id: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "UserConfig":
+        if data is None:
+            data = {}
+        return cls(
+            sku_standard_model_task_count_max=int(data.get("skuStandardModelTaskCountMax", 100) or 100),
+            user_preference_package_id=data.get("userPreferencePackageId"),
+        )
+
+
+@dataclass
+class ProductPackage:
+    """产品套餐"""
+
+    id: str = ""
+    rights_id: str = ""
+    package_name: str = ""
+    package_desc: Optional[str] = None
+    rights_desc: str = ""
+    is_default: bool = False
+    seq: str = ""
+    coin_value: int = 0
+    wallet_value: float = 0.0
+    currency: str = ""
+    unit_desc: str = ""
+    package_code: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ProductPackage":
+        if data is None:
+            data = {}
+        return cls(
+            id=str(data.get("id", "")),
+            rights_id=str(data.get("rightsId", "")),
+            package_name=data.get("packageName", ""),
+            package_desc=data.get("packageDesc"),
+            rights_desc=data.get("rightsDesc", ""),
+            is_default=bool(data.get("isDefault", False)),
+            seq=data.get("seq", ""),
+            coin_value=int(data.get("coinValue", 0) or 0),
+            wallet_value=float(data.get("walletValue", 0) or 0),
+            currency=data.get("currency", ""),
+            unit_desc=data.get("unitDesc", ""),
+            package_code=data.get("packageCode", ""),
+        )
+
+
+@dataclass
+class UserInfoResponse:
+    """用户信息响应（uc/getUserInfo）"""
+
+    id: str = ""
+    mobile: str = ""
+    email: Optional[str] = None
+    pwd_flag: bool = False
+    head_icon: str = ""
+    nick_name: str = ""
+    home_page: Optional[str] = None
+    member_info: Optional[MemberInfo] = None
+    virtual_coin: str = "0"
+    virtual_coin_daily: str = "0"
+    total_coin: str = "0"
+    introduce: Optional[str] = None
+    profile: Optional[str] = None
+    instance_state: int = -1
+    instance_subscribed_type: int = 0
+    instance_expire_time_str: str = ""
+    instance_expire_time_ts: str = "0"
+    balance_use_up_time_str: str = ""
+    balance_use_up_time_ts: Optional[str] = None
+    power_value: str = "0"
+    api_key: str = ""
+    ip: str = ""
+    country: str = ""
+    region: Optional[str] = None
+    channel: str = ""
+    user_flag: str = ""
+    login_coin_triggered: bool = False
+    type: str = ""
+    role: str = ""
+    wx_open_id: Optional[str] = None
+    wx_union_id: Optional[str] = None
+    wx_nick_name: Optional[str] = None
+    wx_head_img_url: Optional[str] = None
+    invite_code: str = ""
+    invite_config: Optional[str] = None
+    invite_code_used: bool = False
+    used_invite_code: Optional[str] = None
+    like_count: str = "0"
+    collect_count: str = "0"
+    follow_count: str = "0"
+    fan_count: str = "0"
+    is_kol: bool = False
+    watermark_text: str = ""
+    default_watermark_text: str = ""
+    watermark_removal_type: int = 0
+    notice_has_unread: bool = False
+    web_task_max_count_limit: int = 0
+    instance_count: Optional[Any] = None
+    multiplier: float = 1.0
+    multiplier_corp_api: float = 1.0
+    show_kontext: bool = False
+    wallet_info: Optional[WalletInfo] = None
+    bank_dialog_vo: Optional[Any] = None
+    user_config: Optional[UserConfig] = None
+    product_packages: Optional[List[ProductPackage]] = None
+    user_preference_package_id: Optional[str] = None
+    show_package_update_popup: bool = False
+    package_effective_date: str = ""
+    current_package_id: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "UserInfoResponse":
+        if data is None:
+            data = {}
+        return cls(
+            id=str(data.get("id", "")),
+            mobile=data.get("mobile", ""),
+            email=data.get("email"),
+            pwd_flag=bool(data.get("pwdFlag", False)),
+            head_icon=data.get("headIcon", ""),
+            nick_name=data.get("nickName", ""),
+            home_page=data.get("homePage"),
+            member_info=MemberInfo.from_dict(data.get("memberInfo")),
+            virtual_coin=str(data.get("virtualCoin", "0")),
+            virtual_coin_daily=str(data.get("virtualCoinDaily", "0")),
+            total_coin=str(data.get("totalCoin", "0")),
+            introduce=data.get("introduce"),
+            profile=data.get("profile"),
+            instance_state=int(data.get("instanceState", -1) or -1),
+            instance_subscribed_type=int(data.get("instanceSubscribedType", 0) or 0),
+            instance_expire_time_str=data.get("instanceExpireTimeStr", ""),
+            instance_expire_time_ts=str(data.get("instanceExpireTimeTs", "0")),
+            balance_use_up_time_str=data.get("balanceUseUpTimeStr", ""),
+            balance_use_up_time_ts=str(data["balanceUseUpTimeTs"]) if data.get("balanceUseUpTimeTs") is not None else None,
+            power_value=str(data.get("powerValue", "0")),
+            api_key=data.get("apiKey", ""),
+            ip=data.get("ip", ""),
+            country=data.get("country", ""),
+            region=data.get("region"),
+            channel=data.get("channel", ""),
+            user_flag=data.get("userFlag", ""),
+            login_coin_triggered=bool(data.get("loginCoinTriggered", False)),
+            type=str(data.get("type", "")),
+            role=data.get("role", ""),
+            wx_open_id=data.get("wxOpenId"),
+            wx_union_id=data.get("wxUnionId"),
+            wx_nick_name=data.get("wxNickName"),
+            wx_head_img_url=data.get("wxHeadImgUrl"),
+            invite_code=data.get("inviteCode", ""),
+            invite_config=str(data["inviteConfig"]) if data.get("inviteConfig") is not None else None,
+            invite_code_used=bool(data.get("inviteCodeUsed", False)),
+            used_invite_code=data.get("usedInviteCode"),
+            like_count=str(data.get("likeCount", "0")),
+            collect_count=str(data.get("collectCount", "0")),
+            follow_count=str(data.get("followCount", "0")),
+            fan_count=str(data.get("fanCount", "0")),
+            is_kol=bool(data.get("isKOL", False)),
+            watermark_text=data.get("watermarkText", ""),
+            default_watermark_text=data.get("defaultWatermarkText", ""),
+            watermark_removal_type=int(data.get("watermarkRemovalType", 0) or 0),
+            notice_has_unread=bool(data.get("noticeHasUnread", False)),
+            web_task_max_count_limit=int(data.get("webTaskMaxCountLimit", 0) or 0),
+            instance_count=data.get("instanceCount"),
+            multiplier=float(data.get("multiplier", 1.0) or 1.0),
+            multiplier_corp_api=float(data.get("multiplierCorpApi", 1.0) or 1.0),
+            show_kontext=bool(data.get("showKontext", False)),
+            wallet_info=WalletInfo.from_dict(data.get("walletInfo")),
+            bank_dialog_vo=data.get("bankDialogVo"),
+            user_config=UserConfig.from_dict(data.get("userConfig")),
+            product_packages=[ProductPackage.from_dict(item) for item in data.get("productPackages", [])],
+            user_preference_package_id=data.get("userPreferencePackageId"),
+            show_package_update_popup=bool(data.get("showPackageUpdatePopup", False)),
+            package_effective_date=data.get("packageEffectiveDate", ""),
+            current_package_id=data.get("currentPackageId", ""),
+        )
+
+
+# ==================== API Key 查询 /uc/apiKey/get ====================
+
+
+@dataclass
+class UserApiKeyRequest:
+    """查询用户 API Key 请求参数"""
+
+    user_id: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 API 请求格式"""
+        return {"userId": self.user_id}
+
+
+@dataclass
+class SharedApiInfo:
+    """共享 API 信息"""
+
+    description: Optional[str] = None
+    currency: str = ""
+    concurrent_limit: int = 0
+    billing_rate: float = 0.0
+    billing_48_rate: float = 0.0
+    api_key: str = ""
+    quick_create_cost_money: float = 0.0
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "SharedApiInfo":
+        if data is None:
+            data = {}
+        return cls(
+            description=data.get("description"),
+            currency=data.get("currency", ""),
+            concurrent_limit=int(data.get("concurrentLimit", 0) or 0),
+            billing_rate=float(data.get("billingRate", 0) or 0),
+            billing_48_rate=float(data.get("billing48Rate", 0) or 0),
+            api_key=data.get("apiKey", ""),
+            quick_create_cost_money=float(data.get("quickCreateCostMoney", 0) or 0),
+        )
+
+
+@dataclass
+class ExclusiveApiInfo:
+    """专属 API 信息"""
+
+    enabled: bool = False
+    description: Optional[str] = None
+    api_key: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ExclusiveApiInfo":
+        if data is None:
+            data = {}
+        return cls(
+            enabled=bool(data.get("enabled", False)),
+            description=data.get("description"),
+            api_key=data.get("apiKey"),
+        )
+
+
+@dataclass
+class BalanceInfo:
+    """余额信息"""
+
+    currency_symbol: Optional[str] = None
+    currency: str = ""
+    balance: float = 0.0
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "BalanceInfo":
+        if data is None:
+            data = {}
+        return cls(
+            currency_symbol=data.get("currencySymbol"),
+            currency=data.get("currency", ""),
+            balance=float(data.get("balance", 0) or 0),
+        )
+
+
+@dataclass
+class UserApiKeyResponse:
+    """用户 API Key 信息响应（uc/apiKey/get）"""
+
+    shared_api: Optional[SharedApiInfo] = None
+    normal_api_key: str = ""
+    exclusive_api: Optional[ExclusiveApiInfo] = None
+    balance_info: Optional[BalanceInfo] = None
+    monthly_cost: float = 0.0
+    current_month_period: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "UserApiKeyResponse":
+        if data is None:
+            data = {}
+        return cls(
+            shared_api=SharedApiInfo.from_dict(data.get("sharedApi")),
+            normal_api_key=data.get("normalApiKey", ""),
+            exclusive_api=ExclusiveApiInfo.from_dict(data.get("exclusiveApi")),
+            balance_info=BalanceInfo.from_dict(data.get("balanceInfo")),
+            monthly_cost=float(data.get("monthlyCost", 0) or 0),
+            current_month_period=data.get("currentMonthPeriod", ""),
+        )
