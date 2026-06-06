@@ -1055,7 +1055,10 @@ class RunningHubClient:
         request: Optional[PortalTemplateListRequest] = None,
     ) -> PortalTemplateListResponse:
         """
-        获取门户模板列表
+        获取工作流模板列表
+
+        调用 /api/portal/template/list 接口，查询 RunningHub 市场中的
+        工作流模板，支持关键词搜索、标签过滤和分页。
 
         Args:
             request: PortalTemplateListRequest 查询参数（可选）
@@ -1580,7 +1583,7 @@ class RunningHubClient:
         request: Optional[PortalTemplateListRequest] = None,
     ) -> PortalTemplateListResponse:
         """
-        异步获取门户模板列表
+        异步获取工作流模板列表
 
         Args:
             request: PortalTemplateListRequest 查询参数（可选）
