@@ -104,6 +104,8 @@ from .typedefs import (
     # Output history 类型
     OutputHistoryV2Request,
     OutputHistoryV2Response,
+    # 工作流类型
+    WorkflowCopyResponse,
 )
 
 # 异常类导出 (包含 ErrorCode 和 ERROR_MESSAGES)
@@ -197,6 +199,8 @@ __all__ = [
     # Output history 类型
     "OutputHistoryV2Request",
     "OutputHistoryV2Response",
+    # 工作流类型
+    "WorkflowCopyResponse",
     # 错误类型
     "ErrorCode",
     "ERROR_MESSAGES",

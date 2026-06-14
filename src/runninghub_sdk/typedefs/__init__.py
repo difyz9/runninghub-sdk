@@ -71,6 +71,9 @@ from .output_history import (
     OutputHistoryV2Request,
     OutputHistoryV2Response,
 )
+from .workflow import (
+    WorkflowCopyResponse,
+)
 
 # ErrorCode 和 ERROR_MESSAGES 在 exceptions.py 中定义，这里不重复导出
 
@@ -141,4 +144,6 @@ __all__ = [
     # Output history 类型
     "OutputHistoryV2Request",
     "OutputHistoryV2Response",
+    # 工作流类型
+    "WorkflowCopyResponse",
 ]

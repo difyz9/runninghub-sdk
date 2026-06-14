@@ -46,3 +46,34 @@ https://www.runninghub.cn/api/workflow/copy
         "canModifyPublishScope": true
     }
 }
+
+## SDK 调用方式
+
+```python
+from runninghub_sdk import RunningHubClient
+
+client = RunningHubClient(api_key="your-api-key")
+
+# 获取工作流详情
+workflow = client.copy_workflow("2061460089676066817")
+
+# 基础字段
+print(workflow.id)       # 工作流 ID
+print(workflow.name)     # 工作流名称
+
+# workflowContent 是 JSON 字符串，包含完整的 ComfyUI 节点信息
+content = workflow.get_workflow_content_parsed()
+print(content["nodes"])  # 节点列表
+print(content["links"])  # 连接信息
+print(content["last_link_id"])
+
+# 异步调用
+import asyncio
+
+async def main():
+    async with RunningHubClient(api_key="your-api-key") as client:
+        workflow = await client.async_copy_workflow("2061460089676066817")
+        print(workflow.id, workflow.name)
+
+asyncio.run(main())
+```

@@ -37,6 +37,7 @@ from .typedefs import (
     WebappListResponse,
     OutputHistoryV2Request,
     OutputHistoryV2Response,
+    WorkflowCopyResponse,
     RunningHubToken,
     UserInfoRequest,
     UserInfoResponse,
@@ -1017,6 +1018,31 @@ class RunningHubClient:
         prompt_str = self.get_workflow_json(workflow_id)
         return json.loads(prompt_str)
 
+    def copy_workflow(
+        self,
+        workflow_id: str,
+        copy_mode: int = 1,
+    ) -> WorkflowCopyResponse:
+        """
+        获取工作流详情（通过复制接口）
+
+        POST /api/workflow/copy
+        返回工作流的 id、name、workflowContent（JSON 字符串）等完整信息。
+        可通过 response.get_workflow_content_parsed() 将 workflowContent 解析为字典。
+
+        Args:
+            workflow_id: 工作流ID
+            copy_mode: 复制模式，默认为 1
+
+        Returns:
+            WorkflowCopyResponse: 包含工作流完整信息
+        """
+        response = self._post("/api/workflow/copy", {
+            "workflowId": workflow_id,
+            "copyMode": copy_mode,
+        })
+        return WorkflowCopyResponse.from_dict(response)
+
     # ==================== 同步 Portal/Webapp 方法 ====================
 
     def get_access_token(self) -> AccessAuthResponse:
@@ -1772,6 +1798,18 @@ class RunningHubClient:
         """异步获取工作流JSON对象"""
         prompt_str = await self.async_get_workflow_json(workflow_id)
         return json.loads(prompt_str)
+
+    async def async_copy_workflow(
+        self,
+        workflow_id: str,
+        copy_mode: int = 1,
+    ) -> WorkflowCopyResponse:
+        """异步获取工作流详情"""
+        response = await self._async_post("/api/workflow/copy", {
+            "workflowId": workflow_id,
+            "copyMode": copy_mode,
+        })
+        return WorkflowCopyResponse.from_dict(response)
 
     async def async_query_v2(self, task_id: str) -> V2QueryResult:
         """异步 V2 查询接口"""
