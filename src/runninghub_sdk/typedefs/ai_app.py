@@ -165,6 +165,113 @@ class AiAppApiCallDemo:
         )
 
 
+@dataclass
+class AiAppOwner:
+    """AI App 作者信息"""
+
+    id: str = ""
+    avatar: str = ""
+    name: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "AiAppOwner":
+        if data is None:
+            data = {}
+        return cls(
+            id=str(data.get("id", "")),
+            avatar=data.get("avatar", ""),
+            name=data.get("name", ""),
+        )
+
+
+@dataclass
+class PublishAccess:
+    """发布访问权限"""
+
+    access_type: int = 0
+    publish_scope: int = 0
+    encrypted: bool = False
+    granted: bool = False
+    need_password: bool = False
+    owner: bool = False
+    visible_users: Optional[List[Any]] = None
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "PublishAccess":
+        if data is None:
+            data = {}
+        return cls(
+            access_type=int(data.get("accessType", 0) or 0),
+            publish_scope=int(data.get("publishScope", 0) or 0),
+            encrypted=bool(data.get("encrypted", False)),
+            granted=bool(data.get("granted", False)),
+            need_password=bool(data.get("needPassword", False)),
+            owner=bool(data.get("owner", False)),
+            visible_users=data.get("visibleUsers"),
+        )
+
+
+@dataclass
+class AiAppDetailResponse:
+    """AI App 详情（调用 /api/webapp/detail 接口返回）"""
+
+    id: str = ""
+    workflowId: Optional[str] = None
+    name: str = ""
+    tags: Optional[List[AiAppTag]] = None
+    owner: Optional[AiAppOwner] = None
+    publishTime: Optional[str] = None
+    updateTime: Optional[str] = None
+    inputNodes: Optional[List[AiAppNodeInfo]] = None
+    description: Optional[str] = None
+    webappState: Optional[int] = None
+    workflowState: Optional[int] = None
+    covers: Optional[List[AiAppCover]] = None
+    chineseCovers: Optional[List[AiAppCover]] = None
+    englishCovers: Optional[List[AiAppCover]] = None
+    preview: Optional[str] = None
+    curl: Optional[str] = None
+    statisticsInfo: Optional[AiAppStatisticsInfo] = None
+    instanceType: Optional[str] = None
+    runningSuccessRate: Optional[Any] = None
+    avgRunningSeconds: Optional[Any] = None
+    popSparkVideo: bool = False
+    publishAccess: Optional[PublishAccess] = None
+    canModifyPublishType: bool = True
+    canModifyPublishScope: bool = True
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "AiAppDetailResponse":
+        if data is None:
+            data = {}
+        return cls(
+            id=str(data.get("id", "")),
+            workflowId=data.get("workflowId"),
+            name=data.get("name", ""),
+            tags=[AiAppTag.from_dict(item) for item in data.get("tags", [])] if data.get("tags") else None,
+            owner=AiAppOwner.from_dict(data.get("owner")),
+            publishTime=data.get("publishTime"),
+            updateTime=data.get("updateTime"),
+            inputNodes=[AiAppNodeInfo.from_dict(item) for item in data.get("inputNodes", [])] if data.get("inputNodes") else None,
+            description=data.get("description"),
+            webappState=data.get("webappState"),
+            workflowState=data.get("workflowState"),
+            covers=[AiAppCover.from_dict(item) for item in data.get("covers", [])] if data.get("covers") else None,
+            chineseCovers=[AiAppCover.from_dict(item) for item in data.get("chineseCovers", [])] if data.get("chineseCovers") else None,
+            englishCovers=[AiAppCover.from_dict(item) for item in data.get("englishCovers", [])] if data.get("englishCovers") else None,
+            preview=data.get("preview"),
+            curl=data.get("curl"),
+            statisticsInfo=AiAppStatisticsInfo.from_dict(data.get("statisticsInfo")),
+            instanceType=data.get("instanceType"),
+            runningSuccessRate=data.get("runningSuccessRate"),
+            avgRunningSeconds=data.get("avgRunningSeconds"),
+            popSparkVideo=bool(data.get("popSparkVideo", False)),
+            publishAccess=PublishAccess.from_dict(data.get("publishAccess")),
+            canModifyPublishType=bool(data.get("canModifyPublishType", True)),
+            canModifyPublishScope=bool(data.get("canModifyPublishScope", True)),
+        )
+
+
 AiAppRunResponse = CreateTaskResponse
 
 

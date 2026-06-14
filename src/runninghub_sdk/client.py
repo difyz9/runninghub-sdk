@@ -21,6 +21,8 @@ from .typedefs import (
     WebhookDetail,
     AiAppRunRequest,
     AiAppApiCallDemo,
+    AiAppNodeInfo,
+    AiAppDetailResponse,
     PublicModelListRequest,
     PublicModelListResponse,
     TaskOutput,
@@ -465,6 +467,30 @@ class RunningHubClient:
             {"webappId": str(webapp_id), "apiKey": self.api_key},
         )
         return AiAppApiCallDemo.from_dict(response)
+
+    def get_webapp_detail(
+        self,
+        webapp_id: Union[int, str],
+    ) -> AiAppDetailResponse:
+        """
+        获取 AI App 详情
+
+        POST /api/webapp/detail
+        返回 AI App 的完整信息，包括输入节点 (inputNodes)、封面、标签、统计信息等。
+        注意：该接口需要用户级别的 Bearer token（登录获取），普通 API Key 可能无效。
+
+        Args:
+            webapp_id: AI App ID
+
+        Returns:
+            AiAppDetailResponse
+        """
+        response = self._post(
+            "/api/webapp/detail",
+            {"webappId": str(webapp_id)},
+            include_api_key=False,
+        )
+        return AiAppDetailResponse.from_dict(response)
 
     def list_public_models(
         self,
@@ -1288,6 +1314,18 @@ class RunningHubClient:
             {"webappId": str(webapp_id), "apiKey": self.api_key},
         )
         return AiAppApiCallDemo.from_dict(response)
+
+    async def async_get_webapp_detail(
+        self,
+        webapp_id: Union[int, str],
+    ) -> AiAppDetailResponse:
+        """异步获取 AI App 详情"""
+        response = await self._async_post(
+            "/api/webapp/detail",
+            {"webappId": str(webapp_id)},
+            include_api_key=False,
+        )
+        return AiAppDetailResponse.from_dict(response)
 
     async def async_list_public_models(
         self,
