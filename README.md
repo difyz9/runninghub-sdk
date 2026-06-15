@@ -12,7 +12,7 @@ SDK 支持两种认证方式，使用前请先确认你的场景需要哪一种�
 | 方式 | 获取途径 | 适用接口 | 示例 |
 |------|---------|---------|------|
 | **API Key** 🔑 | RunningHub 后台获取 | 任务创建/查询/取消、文件上传、工作流 JSON、AI App 运行、标准模型 API、公共模型列表、账户信息、队列状态、Webhook 调试 | `RunningHubClient(api_key="...")` |
-| **用户 Token** 🪪 | 手机号+密码登录获取 | 门户模板列表、Webapp 列表、用户信息、用户 API Key 信息、输出历史查询、输出文件下载、Access Token 获取 | `RunningHubClient.from_login("138...", "pswd")` |
+| **用户 Token** 🪪 | 手机号+密码登录获取 | 门户模板列表、Webapp 列表、用户信息、用户 API Key 信息、输出历史查询、输出文件下载、Access Token 获取、调用日志详情 | `RunningHubClient.from_login("138...", "pswd")` 或 `RunningHubClient.from_env()` |
 
 > **说明**：API Key 是 RunningHub 平台为开发者分配的固定密钥，适合后端集成。用户 Token 是模拟浏览器登录行为获取的临时凭证（有时效性），适合需要操作用户级数据的场景。SDK 统一了这两种方式——从 `login()` 返回的 `access_token` 可以直接作为 `api_key` 传入 `RunningHubClient`。
 
@@ -20,7 +20,9 @@ SDK 支持两种认证方式，使用前请先确认你的场景需要哪一种�
 ## 特性
 
 - 🔑 **API Key** 与 🪪 **用户 Token** 双认证，覆盖全部 RunningHub 接口
-- 手机号密码登录，自动缓存 Token，过期自动检测
+- 📦 `from_env()` 方法一键从 `.env` 加载认证，无需手动处理登录逻辑
+- 🧰 内置 `bootstrap_env()`、`get_env()`、`to_dict()` 等开箱即用的工具函数
+- 手机号密码登录，自动缓存 Token，过期自动检测，JWT 自动解码获取 user_id
 - 同时支持同步和异步调用
 - 基于 `httpx`，接口简单，依赖精简
 - 提供完整类型注解，适合 IDE 自动补全
@@ -85,6 +87,33 @@ user = client.get_user_info(user_id="your-user-id")
 task = client.run("workflow-id")
 ```
 
+### 方式三：从环境变量一键创建（推荐在示例脚本中使用）
+
+在项目根目录创建 `.env` 文件：
+
+```env
+RUNNINGHUB_USERNAME=138xxxxxxxx
+RUNNINGHUB_PASSWORD=your_password
+```
+
+然后在代码中直接使用 `from_env()`：
+
+```python
+from runninghub_sdk import RunningHubClient, bootstrap_env
+
+# 加载 .env 并自动创建客户端（自动登录、自动提取 user_id）
+bootstrap_env()                         # 从脚本目录 / cwd 加载 .env
+client = RunningHubClient.from_env()    # 自动选择可用的认证方式
+
+# 直接调用任意接口
+detail = client.get_call_log_detail(
+    task_id="2066351966031925250",
+    user_id="2013415890368073729",
+)
+```
+
+认证优先级：显式参数 > 环境变量 `RUNNINGHUB_USERNAME` + `RUNNINGHUB_PASSWORD`（自动 login） > `RUNNINGHUB_TOKEN` > `RUNNINGHUB_API_KEY`。
+
 ### 异步调用
 
 ```python
@@ -109,15 +138,17 @@ asyncio.run(main())
 | 认证方式 | 适用场景 | 初始化方法 |
 |---------|---------|-----------|
 | 🔑 API Key | 任务、AI App、模型 API、上传、账户队列 | `RunningHubClient(api_key=...)` |
-| 🪪 用户 Token | 门户模板、用户信息、输出历史、登录 | `RunningHubClient.from_login(...)` |
+| 🪪 用户 Token | 门户模板、用户信息、输出历史、调用日志、登录 | `RunningHubClient.from_login(...)` |
+| 📦 环境变量 | 示例脚本、快速开发、CI/CD 环境 | `RunningHubClient.from_env()` |
 
 ### 登录与 Token 管理
 
 | 同步方法 | 异步方法 | 认证 | 说明 |
 |---------|---------|------|------|
-| `login()` (classmethod) | — | — | 手机号密码登录，返回 `RunningHubToken` |
+| `login()` (classmethod) | — | — | 手机号密码登录，返回 `RunningHubToken`（含 `user_id` 属性自动解码 JWT） |
 | `from_login()` (classmethod) | — | — | 一键登录 → 缓存 token → 返回客户端 |
 | `from_token_cache()` (classmethod) | — | — | 从本地缓存恢复客户端，过期自动提示 |
+| `from_env()` (classmethod) | — | — | 从参数或环境变量自动选择认证方式创建客户端 |
 | `get_access_token()` | `async_get_access_token()` | 🪪 | 获取用户级 access token（JWT） |
 
 ### 用户信息接口
@@ -183,6 +214,21 @@ asyncio.run(main())
 | `get_workflow_json()` | `async_get_workflow_json()` | 🔑 | 获取工作流 JSON 字符串 |
 | `get_workflow_json_parsed()` | `async_get_workflow_json_parsed()` | 🔑 | 获取解析后的工作流对象 |
 | `create_modifier()` | — | — | 创建 NodeModifier 实例 |
+
+### 调用日志详情
+
+| 同步方法 | 异步方法 | 认证 | 说明 |
+|---------|---------|------|------|
+| `get_call_log_detail()` | `async_get_call_log_detail()` | 🪪 | 查询调用日志详情（基本信息、输出文件、费用、请求参数、响应详情） |
+
+### 工具函数
+
+| 函数 | 说明 |
+|------|------|
+| `bootstrap_env(script_dir)` | 从脚本目录/当前目录加载 `.env` 文件到环境变量 |
+| `get_env(name, default)` | 安全读取环境变量，不存在返回默认值 |
+| `get_required_env(name)` | 强制读取环境变量，不存在抛 `ValueError` |
+| `to_dict(obj)` | 递归将 dataclass/enum 树转换为纯 dict，便于 JSON 序列化 |
 
 ### 账户与队列
 
@@ -527,6 +573,65 @@ except RunningHubError as error:
         print("API Key 无效")
 ```
 
+## 调用日志查询
+
+查询指定任务的完整调用日志，包括基本信息、输出文件列表、费用、请求参数和响应详情。需要用户级别 Token（来自手机号+密码登录）。
+
+```python
+from runninghub_sdk import RunningHubClient, bootstrap_env
+
+# 从环境变量加载
+bootstrap_env()
+client = RunningHubClient.from_env()
+
+# user_id 自动从 JWT 解码（登录返回的 access_token 中提取 sub）
+import base64, json
+payload = json.loads(base64.urlsafe_b64decode(client.api_key.split(".")[1] + "=="))
+user_id = payload["sub"]
+
+detail = client.get_call_log_detail(
+    task_id="2066351966031925250",
+    user_id=user_id,
+)
+
+# 基本信息
+print(detail.basic_info.api_name)
+print(detail.basic_info.task_status)
+print(f"消耗: {detail.basic_info.coin_num} 金币，耗时 {detail.basic_info.duration} 秒")
+
+# 输出文件
+for output in detail.outputs:
+    print(output.file_url)
+
+# 请求参数（已自动解析为 dict）
+import json
+print(json.dumps(detail.request_info.api_request_params, indent=2, ensure_ascii=False))
+
+# 响应详情
+print(detail.response_info.status)
+for result in detail.response_info.results:
+    print(f"节点 {result.node_id}: {result.url}")
+
+# 费用
+print(f"消耗: {detail.cost_info.coin_num} 金币")
+
+# 异步版本
+async def main():
+    async with RunningHubClient(api_key=client.api_key) as c:
+        detail = await c.async_get_call_log_detail(
+            task_id="...", user_id=user_id,
+        )
+```
+
+也可以通过 `to_dict()` 将全部信息转为 JSON 友好格式：
+
+```python
+from runninghub_sdk import to_dict
+import json
+
+print(json.dumps(to_dict(detail), indent=2, ensure_ascii=False))
+```
+
 ## 类型定义
 
 SDK 暴露了全部 API 的请求/响应类型，便于静态检查和 IDE 补全：
@@ -555,23 +660,34 @@ from runninghub_sdk import (
     # AI App
     AiAppRunRequest, AiAppApiCallDemo,
     PublicModelListRequest, PublicModelListResponse,
+    # 调用日志
+    CallLogDetailRequest, CallLogDetailResponse,
+    CallLogBasicInfo, CallLogOutputItem,
+    CallLogCostInfo, CallLogRequestInfo,
+    CallLogResultItem, CallLogUsage,
+    CallLogTaskUsageRecord, CallLogResponseInfo,
+    # 工具函数
+    bootstrap_env, get_env, get_required_env, to_dict,
 )
 ```
 
 ## 更多示例
 
-更多可运行示例见 [examples/api.md](examples/api.md)，包含：
+更多可运行示例见 [examples/](examples/) 目录，包含：
 
-- 手机号密码登录 & 自动缓存 Token
-- 从缓存恢复客户端 & 自动续期
-- 获取用户信息 & API Key 详情
-- 门户模板搜索 & Webapp 浏览
-- 输出历史查询 & 并发下载
-- 异步完整工作流
+- 手机号密码登录 & 自动缓存 Token — [runninghub_login.py](examples/runninghub_login.py)
+- 从缓存恢复客户端 & 自动续期 — [get_webapp_detail.py](examples/get_webapp_detail.py)
+- 任务状态查询 & V2 查询 — [query_task_status.py](examples/query_task_status.py)
+- 工作流详情获取 & JSON 解析 — [get_workflow_detail.py](examples/get_workflow_detail.py)
+- AI App 详情查询 — [get_webapp_detail.py](examples/get_webapp_detail.py)
+- 门户模板搜索 & Webapp 浏览 — [query_portal_api.py](examples/query_portal_api.py)
+- 输出历史查询 & 并发下载 — [query_output_history_v2.py](examples/query_output_history_v2.py)
+- 调用日志详情查询 — [task_detail.py](examples/task_detail.py)
+- 历史文件批量下载 — [download_history_outputs.py](examples/download_history_outputs.py)
 
 ## 详细使用案例
 
-下面给出几类更贴近实际业务的调用方式。完整脚本可继续参考 [examples/api.md](examples/api.md)。
+下面给出几类更贴近实际业务的调用方式。完整脚本可继续参考 [examples/](examples/) 目录。
 
 ### 案例 1：先读取工作流结构，再按节点动态改参
 
@@ -683,8 +799,46 @@ with RunningHubClient(api_key="your-api-key") as client:
     print(detail.callback_response)
 ```
 
+### 案例 5：查询任务调用日志详情
 
+适合排查任务执行情况、查看输入输出和费用明细。需要用户级别 Token（手机号+密码登录）。
 
+```python
+from runninghub_sdk import RunningHubClient, bootstrap_env, to_dict
+import json, base64
+
+bootstrap_env()
+client = RunningHubClient.from_env()
+
+# 从 JWT 解码 user_id
+payload = json.loads(base64.urlsafe_b64decode(client.api_key.split(".")[1] + "=="))
+user_id = payload["sub"]
+
+# 查询调用日志
+detail = client.get_call_log_detail(
+    task_id="2066351966031925250",
+    user_id=user_id,
+)
+
+# 基本信息
+info = detail.basic_info
+print(f"接口: {info.api_name}，状态: {info.task_status}")
+print(f"消耗: {info.coin_num} 金币 | 耗时: {info.duration} 秒")
+
+# 输出文件列表
+for out in detail.outputs:
+    print(out.file_url)
+
+# 请求参数（已自动解析为 dict）
+print(json.dumps(detail.request_info.api_request_params, indent=2, ensure_ascii=False))
+
+# 响应中的结果列表
+for result in detail.response_info.results:
+    print(f"节点 {result.node_id}: {result.output_type}")
+
+# to_dict 一键转 JSON
+print(json.dumps(to_dict(detail), indent=2, ensure_ascii=False))
+```
 
 ## 💬 技术交流
 
