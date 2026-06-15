@@ -1,76 +1,48 @@
-"""Query a RunningHub task status & results, print as formatted JSON.
+#!/usr/bin/env python3
+"""查询任务状态和结果，以格式化 JSON 输出。
 
-Supports:
-  - Basic status (QUEUED / RUNNING / SUCCESS / FAILED)
-  - V2 query with detailed results
-  - Task outputs (file URLs, types, costs)
-  - Webhook detail
+支持：
+  - 基本状态查询 (QUEUED / RUNNING / SUCCESS / FAILED)
+  - V2 详细查询（含结果 URL）
+  - 任务输出（文件 URL、类型、费用）
+  - Webhook 详情
 
 Usage:
-    pip install runninghub-sdk
-    export RUNNINGHUB_API_KEY="your-api-key"
+    cd runninghub-sdk
 
-    # Full query (status + V2 + outputs + webhook)
+    # .env 中有账号信息（RUNNINGHUB_API_KEY 或 RUNNINGHUB_USERNAME+密码）
     python examples/query_task_status.py <task_id>
 
-    # Quick V2 query only (lighter, with result URLs)
+    # 快速 V2 查询（更轻量，含结果 URL）
     python examples/query_task_status.py <task_id> --v2-only
 """
 
 from __future__ import annotations
 
 import json
-import os
 import sys
-from enum import Enum
-from pathlib import Path
-from typing import Any, Dict
 
-from runninghub_sdk import RunningHubClient, TaskStatus, load_env_file
+from runninghub_sdk import (
+    RunningHubClient,
+    TaskStatus,
+    bootstrap_env,
+    to_dict,
+)
 from runninghub_sdk.exceptions import RunningHubError
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+def query_task(client: RunningHubClient, task_id: str) -> dict:
+    """查询任务，返回结构化结果。"""
+    result: dict = {"task_id": task_id}
 
-
-def bootstrap_env() -> None:
-    for env_path in (SCRIPT_DIR / ".env", Path.cwd() / ".env"):
-        if env_path.exists():
-            load_env_file(env_path)
-
-
-def get_required_env(name: str) -> str:
-    value = os.getenv(name, "").strip()
-    if not value:
-        raise SystemExit(f"Missing required environment variable: {name}")
-    return value
-
-
-def to_dict(obj: Any) -> Any:
-    """Recursively convert a dataclass/enum instance to a JSON-friendly dict."""
-    if hasattr(obj, '__dataclass_fields__'):
-        return {k: to_dict(getattr(obj, k)) for k in obj.__dataclass_fields__}
-    if isinstance(obj, Enum):
-        return obj.value
-    if isinstance(obj, list):
-        return [to_dict(item) for item in obj]
-    if isinstance(obj, dict):
-        return {k: to_dict(v) for k, v in obj.items()}
-    return obj
-
-
-def query_task(client: RunningHubClient, task_id: str) -> Dict[str, Any]:
-    """Query task via V2 API and return a structured result dict."""
-    result: Dict[str, Any] = {"task_id": task_id}
-
-    # 1. Basic status
+    # 1. 基本状态
     result["status"] = client.get_status(task_id).value
 
-    # 2. V2 query (detailed info with results)
+    # 2. V2 查询
     v2 = client.query_v2(task_id)
     result["v2_query"] = to_dict(v2)
 
-    # 3. Outputs (only available on SUCCESS)
+    # 3. 输出（仅 SUCCESS 可用）
     if result["status"] == "SUCCESS":
         try:
             outputs = client.get_outputs(task_id)
@@ -78,40 +50,36 @@ def query_task(client: RunningHubClient, task_id: str) -> Dict[str, Any]:
         except RunningHubError as exc:
             result["outputs_error"] = str(exc)
 
-    # 4. Webhook detail (best-effort)
+    # 4. Webhook 详情
     try:
-        webhook = client.get_webhook_detail(task_id)
-        result["webhook"] = to_dict(webhook)
+        result["webhook"] = to_dict(client.get_webhook_detail(task_id))
     except RunningHubError:
         result["webhook"] = None
 
     return result
 
 
-def print_help() -> None:
-    print(__doc__)
-
-
 def main() -> int:
-    bootstrap_env()
-
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
-        print_help()
+        print(__doc__)
         return 1 if len(sys.argv) < 2 else 0
 
     task_id = sys.argv[1]
     v2_only = "--v2-only" in sys.argv
 
-    api_key = get_required_env("RUNNINGHUB_API_KEY")
+    bootstrap_env()
+    try:
+        client = RunningHubClient.from_env()
+    except ValueError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return 1
 
     try:
-        with RunningHubClient(api_key=api_key) as client:
+        with client:
             if v2_only:
-                # Quick V2 query only
                 v2 = client.query_v2(task_id)
                 print(json.dumps(to_dict(v2), indent=2, ensure_ascii=False))
             else:
-                # Full query: status + V2 + outputs + webhook
                 result = query_task(client, task_id)
                 print(json.dumps(result, indent=2, ensure_ascii=False))
 

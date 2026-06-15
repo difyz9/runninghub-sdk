@@ -1,5 +1,13 @@
 """Download files from history result JSON.
 
+SDK 替代方案（推荐）：
+    client = RunningHubClient.from_env()
+    result = client.download_history_outputs(
+        records, output_dir="downloads", concurrency=5,
+    )
+    返回 {"downloaded": [...], "skipped": [...], "failed": [...]}
+
+本脚本为独立工具版本，直接从 JSON 文件读取记录并下载。
 Reads records from `query_output_history_v2_result.json` and downloads each
 `fileUrl` to one output folder. Filename uses `outputName`.
 

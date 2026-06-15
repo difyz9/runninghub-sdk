@@ -284,6 +284,100 @@ class RunningHubClient:
 
         return cls(api_key=token.access_token, base_url=base_url, timeout=timeout)
 
+    @classmethod
+    def from_env(
+        cls,
+        *,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        token: Optional[str] = None,
+        token_cache: Optional[Union[str, Path]] = None,
+        base_url: str = BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> "RunningHubClient":
+        """
+        从环境变量一键创建客户端实例
+
+        认证优先级（高 → 低）：
+          1. 明确传入的 username + password（参数优先）
+          2. 明确传入的 token（参数优先）
+          3. 环境变量 RUNNINGHUB_USERNAME + RUNNINGHUB_PASSWORD（自动 login）
+          4. 环境变量 RUNNINGHUB_TOKEN（直接用 Bearer token）
+          5. 环境变量 RUNNINGHUB_API_KEY（最低保底）
+
+        Args:
+            username: 手机号（可选，优先于环境变量）
+            password: 密码（可选，优先于环境变量）
+            token: Bearer token（可选，优先于环境变量）
+            token_cache: token 缓存文件路径（可选，登录成功自动缓存）
+            base_url: API 基础 URL（可选）
+            timeout: 请求超时时间（秒）
+
+        Returns:
+            RunningHubClient 实例
+
+        Raises:
+            ValueError: 未找到任何可用的认证信息
+
+        示例:
+            # 从 .env 读取 RUNNINGHUB_USERNAME + RUNNINGHUB_PASSWORD
+            client = RunningHubClient.from_env()
+
+            # 显式传入（优先）
+            client = RunningHubClient.from_env(
+                username="138xxxxxxxx",
+                password="your_password",
+                token_cache="token.json",
+            )
+
+            # 使用已有的 Bearer token
+            client = RunningHubClient.from_env(token="eyJ...")
+
+            # 配合 bootstrap_env 使用
+            from runninghub_sdk import bootstrap_env
+            bootstrap_env()
+            client = RunningHubClient.from_env()
+        """
+        import os
+
+        # 1. 参数或环境变量中获取 username + password
+        _username = username or os.getenv("RUNNINGHUB_USERNAME", "").strip()
+        _password = password or os.getenv("RUNNINGHUB_PASSWORD", "").strip()
+
+        # 2. 参数或环境变量中获取 token
+        _token = token or os.getenv("RUNNINGHUB_TOKEN", "").strip()
+
+        # 3. 保底：API Key
+        _api_key = os.getenv("RUNNINGHUB_API_KEY", "").strip()
+
+        # 有 username + password → 自动登录
+        if _username and _password:
+            t = cls.login(
+                username=_username,
+                password=_password,
+                base_url=base_url,
+                timeout=timeout,
+            )
+            if token_cache:
+                t.save(token_cache, username=_username)
+            return cls(api_key=t.access_token, base_url=base_url, timeout=timeout)
+
+        # 有 token → 直接用
+        if _token:
+            return cls(api_key=_token, base_url=base_url, timeout=timeout)
+
+        # 有 API Key → 保底
+        if _api_key and _api_key != "your-api-key":
+            return cls(api_key=_api_key, base_url=base_url, timeout=timeout)
+
+        raise ValueError(
+            "未找到可用的认证信息。请设置以下之一：\n"
+            "  1. RUNNINGHUB_USERNAME + RUNNINGHUB_PASSWORD（推荐）\n"
+            "  2. RUNNINGHUB_TOKEN（用户级别 Bearer token）\n"
+            "  3. RUNNINGHUB_API_KEY（API Key）\n"
+            "或在参数中直接传入 username/password/token。"
+        )
+
     def __init__(
         self,
         api_key: str,

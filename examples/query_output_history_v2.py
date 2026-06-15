@@ -1,5 +1,13 @@
 """Call RunningHub web history API and print formatted JSON response.
 
+SDK 替代方案（推荐）：
+    client = RunningHubClient.from_env()
+    result = client.query_output_history_v2(
+        OutputHistoryV2Request(size=30, current=1, status=[TaskStatus.SUCCESS]),
+    )
+    返回 OutputHistoryV2Response 类型，无需手动解析 JSON。
+
+本脚本为独立调试工具，直接使用 raw httpx 调用。
 Endpoint:
   https://www.runninghub.cn/api/output/v2/history
 

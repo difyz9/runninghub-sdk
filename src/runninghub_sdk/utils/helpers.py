@@ -2,8 +2,11 @@
 
 import hashlib
 import json
+import os
 import time
-from typing import Any, Callable, Dict, Optional, TypeVar
+from enum import Enum
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 T = TypeVar("T")
 
@@ -110,6 +113,90 @@ def format_file_size(size_bytes: int) -> str:
             return f"{size_bytes:.2f} {unit}"
         size_bytes /= 1024
     return f"{size_bytes:.2f} TB"
+
+
+def bootstrap_env(script_dir: Optional[Union[str, Path]] = None) -> None:
+    """
+    加载 .env 文件到环境变量
+
+    按优先级搜索：指定的脚本目录 > 当前工作目录
+
+    Args:
+        script_dir: 脚本所在目录路径（可选）。建议传入 Path(__file__).resolve().parent
+    """
+    from ..config import load_env_file
+
+    search_dirs: List[Path] = []
+    if script_dir:
+        search_dirs.append(Path(script_dir))
+    search_dirs.append(Path.cwd())
+
+    for d in search_dirs:
+        env_path = d / ".env"
+        if env_path.exists():
+            load_env_file(env_path)
+            return
+
+
+def get_env(name: str, default: str = "") -> str:
+    """
+    安全读取环境变量
+
+    Args:
+        name: 环境变量名称
+        default: 默认值（可选）
+
+    Returns:
+        环境变量值，不存在时返回默认值
+    """
+    return os.getenv(name, "").strip() or default
+
+
+def get_required_env(name: str) -> str:
+    """
+    强制读取环境变量，不存在时抛 ValueError
+
+    Args:
+        name: 环境变量名称
+
+    Returns:
+        环境变量值
+
+    Raises:
+        ValueError: 环境变量未设置
+    """
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value
+
+
+def to_dict(obj: Any) -> Any:
+    """
+    递归将 dataclass/enum 实例转为纯 dict，便于 JSON 序列化
+
+    支持嵌套的 dataclass、enum、list、dict 组合。
+    Enum 转为 .value，其他非容器类型原样返回。
+
+    Args:
+        obj: 任意对象
+
+    Returns:
+        JSON-friendly 的纯 dict/list/基本类型
+    """
+    # dataclass
+    if hasattr(obj, '__dataclass_fields__'):
+        return {k: to_dict(getattr(obj, k)) for k in obj.__dataclass_fields__}
+    # enum
+    if isinstance(obj, Enum):
+        return obj.value
+    # list / tuple
+    if isinstance(obj, (list, tuple)):
+        return [to_dict(item) for item in obj]
+    # dict
+    if isinstance(obj, dict):
+        return {k: to_dict(v) for k, v in obj.items()}
+    return obj
 
 
 def print_task_request_json(
