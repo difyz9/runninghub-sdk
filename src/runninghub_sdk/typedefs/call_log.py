@@ -204,13 +204,13 @@ class CallLogResponseInfo:
             status=data.get("status", ""),
             error_code=data.get("errorCode", ""),
             error_message=data.get("errorMessage", ""),
-            results=[CallLogResultItem.from_dict(item) for item in data.get("results", [])],
+            results=[CallLogResultItem.from_dict(item) for item in (data.get("results") or [])],
             client_id=data.get("clientId", ""),
             prompt_tips=data.get("promptTips", ""),
-            failed_reason=data.get("failedReason", {}),
+            failed_reason=data.get("failedReason") or {},
             usage=CallLogUsage.from_dict(data.get("usage")),
             parent_task_id=str(data.get("parentTaskId")) if data.get("parentTaskId") is not None else None,
-            task_usage_list=[CallLogTaskUsageRecord.from_dict(item) for item in data.get("taskUsageList", [])],
+            task_usage_list=[CallLogTaskUsageRecord.from_dict(item) for item in (data.get("taskUsageList") or [])],
         )
 
 
@@ -230,7 +230,7 @@ class CallLogDetailResponse:
             data = {}
         return cls(
             basic_info=CallLogBasicInfo.from_dict(data.get("basicInfo")),
-            outputs=[CallLogOutputItem.from_dict(item) for item in data.get("list", [])],
+            outputs=[CallLogOutputItem.from_dict(item) for item in (data.get("list") or [])],
             cost_info=CallLogCostInfo.from_dict(data.get("costInfo")),
             request_info=CallLogRequestInfo.from_dict(data.get("requestInfo")),
             response_info=CallLogResponseInfo.from_dict(data.get("responseInfo")),
