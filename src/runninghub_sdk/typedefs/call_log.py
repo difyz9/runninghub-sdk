@@ -89,16 +89,26 @@ class CallLogCostInfo:
 class CallLogRequestInfo:
     """调用日志请求参数信息"""
 
-    api_request_params: str = ""
+    api_request_params: Any = ""
 
     @classmethod
     def from_dict(cls, data: Optional[Dict[str, Any]]) -> "CallLogRequestInfo":
         if data is None:
             data = {}
-        return cls(api_request_params=data.get("apiRequestParams", ""))
+        raw = data.get("apiRequestParams", "")
+        # 自动将 JSON 字符串解析为 dict，to_dict() 时直接输出结构化对象
+        if isinstance(raw, str) and raw.strip():
+            import json
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return cls(api_request_params=raw)
 
     def get_request_params_parsed(self) -> Dict[str, Any]:
-        """将 apiRequestParams JSON 字符串解析为字典"""
+        """获取解析后的请求参数字典"""
+        if isinstance(self.api_request_params, dict):
+            return self.api_request_params
         import json
         try:
             return json.loads(self.api_request_params)
