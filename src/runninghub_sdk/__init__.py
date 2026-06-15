@@ -109,6 +109,17 @@ from .typedefs import (
     OutputHistoryV2Response,
     # 工作流类型
     WorkflowCopyResponse,
+    # 调用日志类型
+    CallLogDetailRequest,
+    CallLogBasicInfo,
+    CallLogOutputItem,
+    CallLogCostInfo,
+    CallLogRequestInfo,
+    CallLogResultItem,
+    CallLogUsage,
+    CallLogTaskUsageRecord,
+    CallLogResponseInfo,
+    CallLogDetailResponse,
 )
 
 # 异常类导出 (包含 ErrorCode 和 ERROR_MESSAGES)
@@ -207,6 +218,17 @@ __all__ = [
     "OutputHistoryV2Response",
     # 工作流类型
     "WorkflowCopyResponse",
+    # 调用日志类型
+    "CallLogDetailRequest",
+    "CallLogBasicInfo",
+    "CallLogOutputItem",
+    "CallLogCostInfo",
+    "CallLogRequestInfo",
+    "CallLogResultItem",
+    "CallLogUsage",
+    "CallLogTaskUsageRecord",
+    "CallLogResponseInfo",
+    "CallLogDetailResponse",
     # 错误类型
     "ErrorCode",
     "ERROR_MESSAGES",

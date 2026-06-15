@@ -45,6 +45,8 @@ from .typedefs import (
     UserInfoResponse,
     UserApiKeyRequest,
     UserApiKeyResponse,
+    CallLogDetailRequest,
+    CallLogDetailResponse,
 )
 from .models import NodeModifier, modify_nodes
 from .utils import calculate_md5, async_sleep, sleep
@@ -1233,6 +1235,58 @@ class RunningHubClient:
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
 
+    def get_call_log_detail(
+        self,
+        task_id: str,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> CallLogDetailResponse:
+        """
+        获取任务调用日志详情
+
+        调用 /api/openapi/my/call/log/detail 接口，使用用户级别的 Bearer token
+        查询指定任务的完整调用日志，包括基本信息、输出文件列表、
+        费用信息、请求参数和响应详情。
+
+        Args:
+            task_id: 任务 ID
+            user_id: 用户 ID（可从 RunningHubToken.identify 获取）
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            CallLogDetailResponse: 调用日志详情
+
+        示例:
+            token = RunningHubClient.login("138xxxxxxxx", "your_password")
+            client = RunningHubClient(api_key=token.access_token)
+            detail = client.get_call_log_detail(
+                task_id="2066351966031925250",
+                user_id="2013415890368073729",
+            )
+            print(detail.basic_info.api_name)
+            print(detail.basic_info.task_status)
+            for output in detail.outputs:
+                print(output.file_url)
+        """
+        request = CallLogDetailRequest(task_id=task_id, user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = self.sync_client.post(
+                "/api/openapi/my/call/log/detail",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return CallLogDetailResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
     # ==================== 异步API方法 ====================
 
     async def async_run(
@@ -1753,6 +1807,45 @@ class RunningHubClient:
             response.raise_for_status()
             result = response.json()
             return UserApiKeyResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def async_get_call_log_detail(
+        self,
+        task_id: str,
+        user_id: str,
+        *,
+        access_token: Optional[str] = None,
+    ) -> CallLogDetailResponse:
+        """
+        异步获取任务调用日志详情
+
+        调用 /api/openapi/my/call/log/detail 接口，使用用户级别的 Bearer token
+        查询指定任务的完整调用日志。
+
+        Args:
+            task_id: 任务 ID
+            user_id: 用户 ID
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            CallLogDetailResponse: 调用日志详情
+        """
+        request = CallLogDetailRequest(task_id=task_id, user_id=user_id)
+        token = access_token or self.api_key
+
+        try:
+            response = await self.async_client.post(
+                "/api/openapi/my/call/log/detail",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return CallLogDetailResponse.from_dict(self._handle_response(result))
         except httpx.HTTPStatusError as e:
             raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
         except httpx.RequestError as e:

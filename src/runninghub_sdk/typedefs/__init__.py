@@ -77,6 +77,18 @@ from .output_history import (
 from .workflow import (
     WorkflowCopyResponse,
 )
+from .call_log import (
+    CallLogDetailRequest,
+    CallLogBasicInfo,
+    CallLogOutputItem,
+    CallLogCostInfo,
+    CallLogRequestInfo,
+    CallLogResultItem,
+    CallLogUsage,
+    CallLogTaskUsageRecord,
+    CallLogResponseInfo,
+    CallLogDetailResponse,
+)
 
 # ErrorCode 和 ERROR_MESSAGES 在 exceptions.py 中定义，这里不重复导出
 
@@ -152,4 +164,15 @@ __all__ = [
     "OutputHistoryV2Response",
     # 工作流类型
     "WorkflowCopyResponse",
+    # 调用日志类型
+    "CallLogDetailRequest",
+    "CallLogBasicInfo",
+    "CallLogOutputItem",
+    "CallLogCostInfo",
+    "CallLogRequestInfo",
+    "CallLogResultItem",
+    "CallLogUsage",
+    "CallLogTaskUsageRecord",
+    "CallLogResponseInfo",
+    "CallLogDetailResponse",
 ]

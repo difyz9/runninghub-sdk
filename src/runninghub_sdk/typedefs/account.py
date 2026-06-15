@@ -1,5 +1,6 @@
 """账户、队列与 webhook 相关类型定义"""
 
+import base64
 import json
 import time
 from dataclasses import dataclass
@@ -234,6 +235,28 @@ class RunningHubToken:
     def is_expired(self) -> bool:
         """判断 token 是否已过期"""
         return self.expires_at_ms <= int(time.time() * 1000)
+
+    @property
+    def user_id(self) -> Optional[str]:
+        """
+        从 JWT access_token 中提取用户 ID（sub 字段）
+
+        JWT payload 格式: {"sub": "2013415890368073729", "username": "c91531cbf...", ...}
+        sub 即为调用 /api/openapi/my/call/log/detail 等接口所需的 userId。
+        """
+        if not self.access_token:
+            return None
+        try:
+            payload_b64 = self.access_token.split(".")[1]
+            # Base64 URL-safe decode
+            padding = 4 - len(payload_b64) % 4
+            if padding != 4:
+                payload_b64 += "=" * padding
+            decoded = base64.urlsafe_b64decode(payload_b64)
+            payload = json.loads(decoded)
+            return payload.get("sub")
+        except (IndexError, ValueError, json.JSONDecodeError):
+            return None
 
     def save(self, path: Union[str, Path], username: str = "") -> Path:
         """
