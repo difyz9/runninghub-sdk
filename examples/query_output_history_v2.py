@@ -8,28 +8,25 @@ SDK 替代方案（推荐）：
     返回 OutputHistoryV2Response 类型，无需手动解析 JSON。
 
 本脚本为独立调试工具，直接使用 raw httpx 调用。
+自动从 .env 文件读取账号信息登录获取 Bearer token。
+
 Endpoint:
   https://www.runninghub.cn/api/output/v2/history
 
-This example is for validating browser-captured request behavior.
-Authorization token is read from environment variable by default
-and can be overridden from CLI args.
-
 Usage:
-  export RH_WEB_BEARER_TOKEN="<your bearer token>"
-  python examples/query_output_history_v2.py
+    cd runninghub-sdk
 
-    # save to specific file (default saves response.json.data)
+    # .env 中有账号信息，自动登录
+    python examples/query_output_history_v2.py
+
+    # 保存到指定文件
     python examples/query_output_history_v2.py --output history_result.json
 
-    # save full debug object instead of only response.json.data
+    # 保存完整调试信息（含请求/响应头）
     python examples/query_output_history_v2.py --save-full
 
-  # override default payload
-  python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
-
-    # override token by arg (prefer env in practice)
-    python examples/query_output_history_v2.py --token "eyJ..."
+    # 自定义查询参数
+    python examples/query_output_history_v2.py --size 10 --current 2 --status SUCCESS,FAILED
 """
 
 from __future__ import annotations
@@ -42,7 +39,8 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from runninghub_sdk import load_env_file
+from runninghub_sdk import RunningHubClient, bootstrap_env
+from runninghub_sdk.exceptions import RunningHubError
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -62,12 +60,6 @@ DEFAULT_TASK_TYPES = [
     "SKU_WEBAPP_API",
     "SKU_WORKFLOW_API",
 ]
-
-
-def bootstrap_env() -> None:
-    for env_path in (SCRIPT_DIR / ".env", Path.cwd() / ".env"):
-        if env_path.exists():
-            load_env_file(env_path)
 
 
 def parse_csv_values(raw: str) -> List[str]:
@@ -144,6 +136,16 @@ def main() -> int:
     bootstrap_env()
     args = parse_args()
 
+    # 未显式传 token 时，从 .env 自动登录获取
+    if not args.token:
+        try:
+            client = RunningHubClient.from_env()
+            args.token = client.api_key
+            print(f"🔐 自动登录获取 token 成功")
+        except (ValueError, RunningHubError) as exc:
+            print(f"❌ 登录失败: {exc}", file=sys.stderr)
+            return 1
+
     payload = build_payload(args)
     headers = build_headers(args)
 
@@ -193,6 +195,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 
 
