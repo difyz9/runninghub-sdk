@@ -89,6 +89,11 @@ from .call_log import (
     CallLogResponseInfo,
     CallLogDetailResponse,
 )
+from .billing_usage import (
+    BillingUsageWideDetailRequest,
+    BillingUsageWideDetailRecord,
+    BillingUsageWideDetailResponse,
+)
 
 # ErrorCode 和 ERROR_MESSAGES 在 exceptions.py 中定义，这里不重复导出
 
@@ -175,4 +180,8 @@ __all__ = [
     "CallLogTaskUsageRecord",
     "CallLogResponseInfo",
     "CallLogDetailResponse",
+    # 账单用量类型
+    "BillingUsageWideDetailRequest",
+    "BillingUsageWideDetailRecord",
+    "BillingUsageWideDetailResponse",
 ]

@@ -5,7 +5,7 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Union, Callable, BinaryIO, Tuple
+from typing import AsyncGenerator, Generator, Optional, List, Dict, Any, Union, Callable, BinaryIO, Tuple
 from urllib.parse import urlparse, unquote
 
 import httpx
@@ -47,6 +47,8 @@ from .typedefs import (
     UserApiKeyResponse,
     CallLogDetailRequest,
     CallLogDetailResponse,
+    BillingUsageWideDetailRequest,
+    BillingUsageWideDetailResponse,
 )
 from .models import NodeModifier, modify_nodes
 from .utils import calculate_md5, async_sleep, sleep
@@ -1381,6 +1383,110 @@ class RunningHubClient:
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
 
+    def get_billing_usage_wide_details(
+        self,
+        request: BillingUsageWideDetailRequest,
+        *,
+        access_token: Optional[str] = None,
+    ) -> BillingUsageWideDetailResponse:
+        """
+        查询账单用量明细
+
+        调用 /api/billing/usage/wideDetails 接口，使用用户级别的 Bearer token
+        查询指定时间范围内的任务用量明细，支持分页和状态筛选。
+
+        Args:
+            request: BillingUsageWideDetailRequest 查询参数
+            access_token: 用户 Bearer token（可选）。
+                         不传则使用 api_key 作为 token。
+
+        Returns:
+            BillingUsageWideDetailResponse: 用量明细及统计
+
+        示例:
+            from runninghub_sdk import BillingUsageWideDetailRequest
+
+            detail = client.get_billing_usage_wide_details(
+                BillingUsageWideDetailRequest(
+                    start_date_time="2026-06-12 00:00:00",
+                    end_date_time="2026-06-18 23:59:59",
+                    size=10,
+                    include_stats=True,
+                    include_child_tasks=True,
+                ),
+            )
+            print(f"总计: {detail.total} 条，金币: {detail.coin_num}")
+            for record in detail.records:
+                print(record.task_name, record.task_status, record.coin_amount)
+        """
+        token = access_token or self.api_key
+
+        try:
+            response = self.sync_client.post(
+                "/api/billing/usage/wideDetails",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return BillingUsageWideDetailResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    def iter_billing_usage_pages(
+        self,
+        request: BillingUsageWideDetailRequest,
+        *,
+        access_token: Optional[str] = None,
+    ) -> Generator[BillingUsageWideDetailResponse, None, None]:
+        """
+        自动分页遍历账单用量明细
+
+        从第一页开始，自动按 next_cursor 翻页，逐页 yield 响应。
+        适合需要拉取全量数据的场景。
+
+        Args:
+            request: BillingUsageWideDetailRequest 查询参数（不含 cursor，自动管理）
+            access_token: 用户 Bearer token（可选）
+
+        Yields:
+            BillingUsageWideDetailResponse: 逐页响应
+
+        示例:
+            client = RunningHubClient.from_env()
+            req = BillingUsageWideDetailRequest(
+                start_date_time="2026-06-12 00:00:00",
+                end_date_time="2026-06-18 23:59:59",
+                size=50,
+            )
+            all_records = []
+            for page in client.iter_billing_usage_pages(req):
+                all_records.extend(page.records)
+                print(f"已获取 {len(all_records)} 条 / 共 {page.total} 条")
+            print(f"总计: {len(all_records)} 条，金币: {sum(r.coin_amount for r in all_records)}")
+        """
+        # 确保从第一页开始（不传 cursor）
+        current_request = BillingUsageWideDetailRequest(
+            start_date_time=request.start_date_time,
+            end_date_time=request.end_date_time,
+            size=request.size,
+            include_stats=request.include_stats,
+            include_child_tasks=request.include_child_tasks,
+            cursor=None,
+            task_status=request.task_status,
+        )
+
+        while True:
+            page = self.get_billing_usage_wide_details(
+                current_request, access_token=access_token,
+            )
+            yield page
+            if not page.has_next or not page.next_cursor:
+                break
+            current_request.cursor = page.next_cursor
+
     # ==================== 异步API方法 ====================
 
     async def async_run(
@@ -1944,6 +2050,78 @@ class RunningHubClient:
             raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
         except httpx.RequestError as e:
             raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def async_get_billing_usage_wide_details(
+        self,
+        request: BillingUsageWideDetailRequest,
+        *,
+        access_token: Optional[str] = None,
+    ) -> BillingUsageWideDetailResponse:
+        """
+        异步查询账单用量明细
+
+        调用 /api/billing/usage/wideDetails 接口，使用用户级别的 Bearer token
+        查询指定时间范围内的任务用量明细。
+
+        Args:
+            request: BillingUsageWideDetailRequest 查询参数
+            access_token: 用户 Bearer token（可选）
+
+        Returns:
+            BillingUsageWideDetailResponse: 用量明细及统计
+        """
+        token = access_token or self.api_key
+
+        try:
+            response = await self.async_client.post(
+                "/api/billing/usage/wideDetails",
+                json=request.to_dict(),
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return BillingUsageWideDetailResponse.from_dict(self._handle_response(result))
+        except httpx.HTTPStatusError as e:
+            raise NetworkError(f"HTTP错误: {e.response.status_code}", e)
+        except httpx.RequestError as e:
+            raise NetworkError(f"网络请求失败: {str(e)}", e)
+
+    async def async_iter_billing_usage_pages(
+        self,
+        request: BillingUsageWideDetailRequest,
+        *,
+        access_token: Optional[str] = None,
+    ) -> AsyncGenerator[BillingUsageWideDetailResponse, None]:
+        """
+        异步自动分页遍历账单用量明细
+
+        从第一页开始，自动按 next_cursor 翻页，逐页 yield 响应。
+
+        Args:
+            request: BillingUsageWideDetailRequest 查询参数（不含 cursor，自动管理）
+            access_token: 用户 Bearer token（可选）
+
+        Yields:
+            BillingUsageWideDetailResponse: 逐页响应
+        """
+        current_request = BillingUsageWideDetailRequest(
+            start_date_time=request.start_date_time,
+            end_date_time=request.end_date_time,
+            size=request.size,
+            include_stats=request.include_stats,
+            include_child_tasks=request.include_child_tasks,
+            cursor=None,
+            task_status=request.task_status,
+        )
+
+        while True:
+            page = await self.async_get_billing_usage_wide_details(
+                current_request, access_token=access_token,
+            )
+            yield page
+            if not page.has_next or not page.next_cursor:
+                break
+            current_request.cursor = page.next_cursor
 
     async def async_upload_file(
         self,

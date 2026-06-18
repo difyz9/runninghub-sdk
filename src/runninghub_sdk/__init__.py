@@ -120,6 +120,10 @@ from .typedefs import (
     CallLogTaskUsageRecord,
     CallLogResponseInfo,
     CallLogDetailResponse,
+    # 账单用量类型
+    BillingUsageWideDetailRequest,
+    BillingUsageWideDetailRecord,
+    BillingUsageWideDetailResponse,
 )
 
 # 异常类导出 (包含 ErrorCode 和 ERROR_MESSAGES)
@@ -229,6 +233,10 @@ __all__ = [
     "CallLogTaskUsageRecord",
     "CallLogResponseInfo",
     "CallLogDetailResponse",
+    # 账单用量类型
+    "BillingUsageWideDetailRequest",
+    "BillingUsageWideDetailRecord",
+    "BillingUsageWideDetailResponse",
     # 错误类型
     "ErrorCode",
     "ERROR_MESSAGES",
